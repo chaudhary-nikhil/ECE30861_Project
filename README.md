@@ -5,4 +5,4 @@ Group Members:
 - Nikhil M Chaudhary (chaudh53@purdue.edu)
 - Luisa Cruz (lcruzmio@purdue.edu)
 - Aadhavan Srinivasan (srini193@purdue.edu)
-- Ryan Baker (baker852@purdue.edu)
+- Ryan Baker  (baker852@purdue.edu)
