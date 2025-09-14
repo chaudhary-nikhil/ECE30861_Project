@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Auto-grader API run script
+# Usage: ./run [install|URL_FILE|test]
+
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "Usage: ./run [install|URL_FILE|test]" >&2
+    exit 1
+fi
+
+ARG="$1"
+
+case "$ARG" in
+    "install")
+        echo "Installing dependencies..."
+
+        # do some stuff
+        echo "NOTE: Nothing is actually happening right now"
+        
+        echo "Dependencies installed successfully."
+        exit 0
+        ;;
+    "test")
+        echo "Running test suite..."
+        
+        # do some stuff
+        echo "NOTE: Nothing is actually happening right now"
+        
+        exit 0
+        ;;
+    *)
+        URL_FILE="$ARG"
+        echo "Processing URL file: $URL_FILE"
+
+        # do some stuff
+        echo "NOTE: Nothing is actually happening right now"
+
+        exit 0;
+        ;;
+esac
