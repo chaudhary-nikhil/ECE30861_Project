@@ -15,18 +15,21 @@ ARG="$1"
 case "$ARG" in
     "install")
         echo "Installing dependencies..."
-
-        # do some stuff
-        echo "NOTE: Nothing is actually happening right now"
         
+        pip install requests
         echo "Dependencies installed successfully."
         exit 0
         ;;
     "test")
         echo "Running test suite..."
         
-        # do some stuff
-        echo "NOTE: Nothing is actually happening right now"
+        if [ -f "testUrls.txt" ]; then
+            echo "Testing with sample URLs..."
+            python -m src.main testUrls.txt
+        else
+            echo "Error: testUrls.txt not found"
+            exit 1
+        fi
         
         exit 0
         ;;
@@ -34,9 +37,12 @@ case "$ARG" in
         URL_FILE="$ARG"
         echo "Processing URL file: $URL_FILE"
 
-        # do some stuff
-        echo "NOTE: Nothing is actually happening right now"
+        if [ ! -f "$URL_FILE" ]; then
+            echo "Error: File '$URL_FILE' not found"
+            exit 1
+        fi
 
+        python -m src.main "$URL_FILE"
         exit 0;
         ;;
 esac
