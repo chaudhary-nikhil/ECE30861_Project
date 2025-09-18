@@ -16,8 +16,7 @@ case "$ARG" in
     "install")
         echo "Installing dependencies..."
 
-        # do some stuff
-        echo "NOTE: Nothing is actually happening right now"
+        pip install -r requirements.txt
         
         echo "Dependencies installed successfully."
         exit 0

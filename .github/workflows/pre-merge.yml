@@ -1,0 +1,27 @@
+# .github/workflows/pre-merge.yml
+name: Pre-merge Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install Dependencies
+      run: ./run install
+
+    - name: Check Formatting
+      run: make format-check
+
+    - name: Lint Python Code
+      run: make lint-check
