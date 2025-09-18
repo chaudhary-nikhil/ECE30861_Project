@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import override
 import re
 
 # A URL consists of the URL string and a category: dataset, model, code.
@@ -39,5 +40,6 @@ class Url:
         else:
             self.category = category
 
+    @override
     def __str__(self) -> str:
        return str(self.link + " Category: " + self.category.__str__())
