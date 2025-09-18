@@ -14,7 +14,7 @@ def parseUrlFile(urlFile: str) -> list[Url]:
     return url_list
 
 
-def main():
+def main() -> int:
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
         return 1
@@ -27,4 +27,4 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    main()
+    return_code: int = main()
