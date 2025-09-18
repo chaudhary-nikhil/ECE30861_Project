@@ -1,0 +1,12 @@
+beautysh==6.2.1
+colorama==0.4.6
+mypy==1.18.1
+mypy_extensions==1.1.0
+nodeenv==1.9.1
+pathspec==0.12.1
+pyright==1.1.405
+ruff==0.13.0
+types-colorama==0.4.15.20250801
+types-setuptools==57.4.18
+typing_extensions==4.15.0
+wheel==0.45.1
