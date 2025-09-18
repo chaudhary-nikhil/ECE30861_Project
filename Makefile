@@ -19,5 +19,5 @@ format-all:
 	fi
 
 lint-check:
-	@mypy --strict "$(PYFILES)" # Update the filepaths if there is code 
-	@			           		# that should be exempt from linting
+	@mypy --strict "$(PYFILES)" > /dev/null || (mypy --strict $(PYFILES) && exit 1)
+	@pyright "$(PYFILES)" > /dev/null || (pyright $(PYFILES) && exit 1)

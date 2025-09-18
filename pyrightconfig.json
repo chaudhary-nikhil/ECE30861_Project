@@ -1,0 +1,22 @@
+{
+  "strict": ["./"],
+  "reportMissingTypeAnnotation": "error",
+  "reportUnknownVariableType": "error",
+  "reportUnknownMemberType": "error", 
+  "reportUnknownArgumentType": "error",
+  "reportUnknownLambdaType": "error",
+  "reportUnknownParameterType": "error",
+  "reportMissingParameterType": "error",
+  "reportMissingReturnType": "error",
+  "reportUntypedFunctionDecorator": "error",
+  "reportUntypedClassDecorator": "error",
+  "reportUntypedBaseClass": "error",
+  "reportUntypedNamedTuple": "error",
+  "reportImplicitStringConcatenation": "error",
+  "reportCallInDefaultInitializer": "error",
+  "reportUnnecessaryIsInstance": "error",
+  "reportUnnecessaryCast": "error",
+  "reportImplicitOverride": "error",
+  "reportIncompatibleMethodOverride": "error",
+  "reportIncompatibleVariableOverride": "error"
+}
