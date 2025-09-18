@@ -17,6 +17,9 @@ jobs:
       with:
         python-version: "3.13"
 
+    - name: Install Dependencies
+      run: ./run install
+
     - name: Check Formatting
       run: make format-check
 
