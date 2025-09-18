@@ -16,3 +16,9 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: "3.13"
+
+    - name: Check Formatting
+      run: make format-check
+
+    - name: Lint Python Code
+      run: make lint-check
