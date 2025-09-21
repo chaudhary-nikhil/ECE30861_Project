@@ -1,16 +1,8 @@
-CFILES  := $(shell find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.cpp" -o -name "*.hpp" \))
-PYFILES := $(shell find . -type f -name "*.py")
-JSFILES := $(shell find . -type f \( -name "*.js" -o -name "*.ts" \))
+PYFILES := $(git ls-files *.py)
 
 format-check:
-	@if [ -n "$(CFILES)" ]; then 				   \
-		clang-format --dry-run --Werror $(CFILES); \
-	fi
 	@if [ -n "$(PYFILES)" ]; then 			    \
 		ruff format --quiet --check $(PYFILES); \
-	fi
-	@if [ -n "$(JSFILES)" ]; then 		 \
-		npx prettier --check $(JSFILES); \
 	fi
 
 format-all:
@@ -22,12 +14,10 @@ format-all:
 			*) echo "Aborted."; exit 1 ;; 							\
 		esac; 														\
 	fi
-	@if [ -n "$(CFILES)" ]; then   \
-		clang-format -i $(CFILES); \
-	fi	
 	@if [ -n "$(PYFILES)" ]; then \
 		ruff format $(PYFILES);	  \
 	fi
-	@if [ -n "$(JSFILES)" ]; then 		 \
-		npx prettier --write $(JSFILES); \
-	fi
+
+lint-check:
+	@mypy --strict "$(PYFILES)" > /dev/null || (mypy --strict $(PYFILES) && exit 1)
+	@pyright "$(PYFILES)" > /dev/null || (pyright $(PYFILES) && exit 1)

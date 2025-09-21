@@ -40,4 +40,4 @@ class Url:
             self.category = category
 
     def __str__(self) -> str:
-        return self.link + " Category: " + self.category.__str__()
+        return str(self.link + " Category: " + self.category.__str__())
