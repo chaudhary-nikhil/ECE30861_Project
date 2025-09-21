@@ -39,21 +39,21 @@ def make_request(url: str) -> Optional[Dict]:
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
     # Extract dataset name
-    match = re.search(r"https://huggingface\.co/datasets/((\w+\/?)+)", url)
+    match = re.search(r"https://huggingface\.co/datasets/([^/]+)", url)
     if not match:
-        return ScoreResult(url, "DATASET", 0.0, 10.0, {'error': 'Invalid URL'})
+        return ScoreResult(url, UrlCategory.DATASET, 0.0, 10.0, {'error': 'Invalid URL', 'name': 'unknown'})
     
     dataset_name = match.group(1)
     api_url = f"https://huggingface.co/api/datasets/{dataset_name}"
     data = make_request(api_url)
     
     if not data:
-        return ScoreResult(url, "DATASET", 0.0, 10.0, {'fallback': True})
+        return ScoreResult(url, UrlCategory.DATASET, 2.0, 10.0, {'fallback': True, 'name': dataset_name})
     
     # Simple scoring based on key metrics
     downloads = data.get('downloads', 0)
     likes = data.get('likes', 0)
-    has_description = bool(data.get('description'))
+    has_description = bool(data.get('cardData', {}).get('description'))
     
     score = 2.0  # Base score
     if downloads > 10000:
@@ -71,7 +71,8 @@ def score_dataset(url: str) -> ScoreResult:
     if has_description:
         score += 2.0
     
-    return ScoreResult(url, "DATASET", min(score, 10.0), 10.0, {
+    return ScoreResult(url, UrlCategory.DATASET, min(score, 10.0), 10.0, {
+        'name': dataset_name,
         'downloads': downloads,
         'likes': likes,
         'has_description': has_description
@@ -83,14 +84,14 @@ def score_model(url: str) -> ScoreResult:
     # Extract model name
     match = re.search(r"https://huggingface\.co/([^/]+/[^/]+)", url)
     if not match:
-        return ScoreResult(url, "MODEL", 0.0, 10.0, {'error': 'Invalid URL'})
+        return ScoreResult(url, UrlCategory.MODEL, 0.0, 10.0, {'error': 'Invalid URL', 'name': 'unknown'})
     
     model_name = match.group(1)
     api_url = f"https://huggingface.co/api/models/{model_name}"
     data = make_request(api_url)
     
     if not data:
-        return ScoreResult(url, "MODEL", 2.0, 10.0, {'fallback': True})
+        return ScoreResult(url, UrlCategory.MODEL, 2.0, 10.0, {'fallback': True, 'name': model_name})
     
     # Simple scoring based on key metrics
     downloads = data.get('downloads', 0)
@@ -117,7 +118,8 @@ def score_model(url: str) -> ScoreResult:
     if pipeline_tag:
         score += 1.0
     
-    return ScoreResult(url, "MODEL", min(score, 10.0), 10.0, {
+    return ScoreResult(url, UrlCategory.MODEL, min(score, 10.0), 10.0, {
+        'name': model_name,
         'downloads': downloads,
         'likes': likes,
         'has_model_card': has_card,
@@ -130,14 +132,14 @@ def score_code(url: str) -> ScoreResult:
     # Extract repo info
     match = re.search(r"https://github\.com/([^/]+)/([^/]+)", url)
     if not match:
-        return ScoreResult(url, "CODE", 0.0, 10.0, {'error': 'Invalid URL'})
+        return ScoreResult(url, UrlCategory.CODE, 0.0, 10.0, {'error': 'Invalid URL', 'name': 'unknown'})
     
     owner, repo = match.groups()
     api_url = f"https://api.github.com/repos/{owner}/{repo}"
     data = make_request(api_url)
     
     if not data:
-        return ScoreResult(url, "CODE", 2.0, 10.0, {'fallback': True})
+        return ScoreResult(url, UrlCategory.CODE, 2.0, 10.0, {'fallback': True, 'name': f"{owner}/{repo}"})
     
     # Simple scoring based on key metrics
     stars = data.get('stargazers_count', 0)
@@ -168,7 +170,8 @@ def score_code(url: str) -> ScoreResult:
     if language:
         score += 1.0
     
-    return ScoreResult(url, "CODE", min(score, 10.0), 10.0, {
+    return ScoreResult(url, UrlCategory.CODE, min(score, 10.0), 10.0, {
+        'name': f"{owner}/{repo}",
         'stars': stars,
         'forks': forks,
         'has_description': has_description,
@@ -186,4 +189,4 @@ def score_url(url: str, category: UrlCategory) -> ScoreResult:
     elif category == UrlCategory.CODE:
         return score_code(url)
     else:
-        return ScoreResult(url, "INVALID", 0.0, 10.0, {'error': 'Invalid category'})
+        return ScoreResult(url, UrlCategory.INVALID, 0.0, 10.0, {'error': 'Invalid category', 'name': 'unknown'})
