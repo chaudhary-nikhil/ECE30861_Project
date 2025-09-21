@@ -6,9 +6,9 @@ from typing import Any
 
 
 class LogLevel(Enum):
-    SILENT = auto()
-    INFO = auto()
-    DEBUG = auto()
+    SILENT = 0
+    INFO = 1
+    DEBUG = 2
 
 
 class Logger:
@@ -19,18 +19,28 @@ class Logger:
     """
 
     def __init__(self) -> None:
-        self.log_file_path: str = os.getenv("LOG_FILE")
-        self.log_level: int = int(os.getenv("LOG_LEVEL", "0"))
+        try:
+            self.log_file_path: str = os.getenv("LOG_FILE")
+        except Exception as e:
+            self.log_file_path: str = ""
+        try:
+            self.log_level: int = int(os.getenv("LOG_LEVEL", "0"))
+        except Exception as e:
+            self.log_level: int = 0
 
         if self.log_level not in [0, 1, 2]:
-            self.log_level = 0
+            self.log_level: int = 0
 
         if self.log_file_path:
-            log_dir = Path(self.log_file_path).parent
-            log_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                log_dir = Path(self.log_file_path).parent
+                log_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                # TODO(rbaker) consider failing hard if we cannot create the log file
+                ...
 
     def _write_log(self, level: LogLevel, message: str, timestamp: str) -> None:
-        if self.log_level < level:
+        if self.log_level < level.value:
             return
         if not self.log_file_path:
             return
@@ -46,12 +56,12 @@ class Logger:
             ...
 
     def log_info(self, message: str) -> None:
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self._write_log(LogLevel.INFO, message)
+        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self._write_log(LogLevel.INFO, message, timestamp)
 
     def log_debug(self, message: str) -> None:
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self._write_log(LogLevel.DEBUG, message)
+        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self._write_log(LogLevel.DEBUG, message, timestamp)
 
     def get_config(self) -> dict[str, Any]:
         return {

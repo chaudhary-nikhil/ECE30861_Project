@@ -21,3 +21,8 @@ format-all:
 lint-check:
 	@mypy --strict $(PYFILES) > /dev/null || (mypy --strict $(PYFILES) && exit 1)
 	@pyright $(PYFILES) > /dev/null || (pyright $(PYFILES) && exit 1)
+
+test:
+	python3 -m pytest
+
+.PHONY: test
