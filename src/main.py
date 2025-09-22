@@ -104,7 +104,7 @@ def calculate_scores(urls: list[Url]) -> None:
         print("No valid URLs found for analysis.")
 
 
-def main():
+def main() -> int:
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
         return 1
@@ -119,4 +119,4 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    main()
+    return_code: int = main()
