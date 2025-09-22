@@ -41,7 +41,7 @@ def score_dataset(url: str) -> ScoreResult:
     # Extract dataset name
     match = re.search(r"https://huggingface\.co/datasets/((\w+\/?)+)", url)
     if not match:
-        return ScoreResult(url, "DATASET", 0.0, 10.0, {'error': 'Invalid URL'})
+        return ScoreResult(url, UrlCategory.DATASET, 0.0, 10.0, {'error': 'Invalid URL'})
     
     dataset_name = match.group(1)
     api_url = f"https://huggingface.co/api/datasets/{dataset_name}"
