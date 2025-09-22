@@ -6,3 +6,15 @@ Group Members:
 - Luisa Cruz (lcruzmio@purdue.edu)
 - Aadhavan Srinivasan (srini193@purdue.edu)
 - Ryan Baker (baker852@purdue.edu)
+
+```bash
+# Install dependencies
+pip install requests
+
+# Run with sample URLs
+python -m src.main testUrls.txt
+
+# Or use the run script
+./run.sh install    # Install dependencies
+./run.sh test       # Run with test URLs
+```
