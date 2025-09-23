@@ -1,7 +1,9 @@
 from .url import Url, UrlCategory
-from .scorer import score_url
+from .scorer import score_url, ScoreResult
 import sys
 import json
+import time
+from typing import List, Dict, Any
 
 def parseUrlFile(urlFile: str) -> list[Url]:
     f = open(urlFile, "r")
@@ -26,7 +28,7 @@ def calculate_scores(urls: list[Url]) -> None:
     total_score = 0.0
     total_max_score = 0.0
     valid_urls = 0
-    ndjson_results = []
+    ndjson_results: List[Dict[str, Any]] = []
     
     for url in urls:
         if url.category == UrlCategory.INVALID:
@@ -34,10 +36,17 @@ def calculate_scores(urls: list[Url]) -> None:
             print("   Status: Invalid URL - Not a dataset, model, or code URL")
             
             # Add to NDJSON even for invalid URLs
+            # Measure net_score calculation latency for invalid URLs (should be 0)
+            start_time = time.perf_counter()
+            net_score = 0.0
+            end_time = time.perf_counter()
+            net_score_latency = round((end_time - start_time) * 1000)  # Convert to milliseconds and round
+            
             ndjson_results.append({
                 "name": "unknown",
                 "category": "INVALID",
-                "net_score": 0.0,
+                "net_score": net_score,
+                "net_score_latency": net_score_latency,
                 "url": url.link,
                 "error": "Invalid URL - Not a dataset, model, or code URL"
             })
@@ -47,7 +56,7 @@ def calculate_scores(urls: list[Url]) -> None:
         print(f"   Category: {url.category.name}")
         
         # Calculate score
-        result = score_url(url.link, url.category)
+        result: ScoreResult = score_url(url.link, url.category)
         
         # Display results
         if result.score > 0:
@@ -91,10 +100,17 @@ def calculate_scores(urls: list[Url]) -> None:
             valid_urls += 1
             
             # Add to NDJSON results
+            # Measure net_score calculation latency
+            start_time = time.perf_counter()
+            net_score = result.score / 10.0  # Convert 0-10 to 0-1 scale
+            end_time = time.perf_counter()
+            net_score_latency = round((end_time - start_time) * 1000)  # Convert to milliseconds and round
+            
             ndjson_entry = {
                 "name": result.details.get('name', 'unknown'),
                 "category": url.category.name,
-                "net_score": result.score / 10.0,  # Convert 0-10 to 0-1 scale
+                "net_score": net_score,
+                "net_score_latency": net_score_latency,
                 "url": url.link,
                 "raw_score": result.score,
                 "max_score": result.max_score,
@@ -153,8 +169,8 @@ def calculate_scores(urls: list[Url]) -> None:
     # Write NDJSON output file
     output_filename = "scores.ndjson"
     with open(output_filename, 'w') as f:
-        for result in ndjson_results:
-            f.write(json.dumps(result) + '\n')
+        for ndjson_entry in ndjson_results:
+            f.write(json.dumps(ndjson_entry) + '\n')
     
     print(f"\n📄 Results written to: {output_filename}")
 
