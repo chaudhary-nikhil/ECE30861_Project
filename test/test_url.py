@@ -4,7 +4,7 @@ from io import StringIO
 import sys
 from unittest.mock import patch
 from enum import Enum
-from url import Url, UrlCategory, determine_category
+from src.url import Url, UrlCategory, determine_category
 
 
 class TestDetermineCategory:
