@@ -42,6 +42,5 @@ class Url:
         else:
             self.category = category
 
-    @override
     def __str__(self) -> str:
        return str(self.link + " Category: " + self.category.__str__())
