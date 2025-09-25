@@ -24,7 +24,7 @@ case "$ARG" in
     "test")
         echo "Running test suite..."
         
-        python3 -m pytest
+        python3 -m pytest --cov=src
         
         exit 0
         ;;
