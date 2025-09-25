@@ -1,6 +1,5 @@
 from enum import Enum
 import re
-from typing import override
 
 # A URL consists of the URL string and a category: dataset, model, code.
 # Relevant regexes:
@@ -41,7 +40,6 @@ class Url:
                 print(f"{link} Invalid URL: Not a dataset, model or code URL")
         else:
             self.category = category
-
-    @override
+    
     def __str__(self) -> str:
        return str(self.link + " Category: " + self.category.__str__())
