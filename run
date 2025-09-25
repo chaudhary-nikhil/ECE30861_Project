@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Auto-grader API run script
+# API run script
 # Usage: ./run [install|URL_FILE|test]
 
 set -e
@@ -16,20 +16,15 @@ case "$ARG" in
     "install")
         echo "Installing dependencies..."
         
-        pip install requests
+        pip install -r requirements.txt
+
         echo "Dependencies installed successfully."
         exit 0
         ;;
     "test")
         echo "Running test suite..."
         
-        if [ -f "testUrls.txt" ]; then
-            echo "Testing with sample URLs..."
-            python -m src.main testUrls.txt
-        else
-            echo "Error: testUrls.txt not found"
-            exit 1
-        fi
+        python3 -m pytest
         
         exit 0
         ;;
