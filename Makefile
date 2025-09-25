@@ -25,4 +25,10 @@ lint-check:
 test:
 	python3 -m pytest
 
-.PHONY: test
+# Autograder targets
+register:
+	@curl --location 'http://dl-berlin.ecn.purdue.edu/api/register' \
+	--header 'Content-Type: application/json' \
+	--data "{\"group\": 27,\"github\": \"https://github.com/chaudhary-nikhil/ECE30861_Project.git\",\"names\": [\"Ryan Baker\",\"Nikhil Chaudhary\",\"Aadhavan Srinivasan\",\"Luisa Cruz Miotto\"],\"gh_token\": \"$(GH_TOKEN)\"}"
+
+.PHONY: test register
