@@ -15,6 +15,6 @@ pip install requests
 python -m src.main testUrls.txt
 
 # Or use the run script
-./run.sh install    # Install dependencies
-./run.sh test       # Run with test URLs
+./run install    # Install dependencies
+./run test       # Run with test URLs
 ```
