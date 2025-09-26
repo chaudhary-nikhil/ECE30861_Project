@@ -19,10 +19,7 @@ class Logger:
     """
 
     def __init__(self) -> None:
-        try:
-            self.log_file_path: str = os.getenv("LOG_FILE")
-        except Exception as e:
-            self.log_file_path: str = ""
+        self.log_file_path: str = os.getenv("LOG_FILE")
         try:
             self.log_level: int = int(os.getenv("LOG_LEVEL", "0"))
         except Exception as e:
