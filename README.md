@@ -18,3 +18,4 @@ python -m src.main testUrls.txt
 ./run install    # Install dependencies
 ./run test       # Run with test URLs
 ```
+
