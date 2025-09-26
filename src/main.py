@@ -50,6 +50,56 @@ def validate_github_token() -> bool:
         return True
 
 
+def validate_log_file() -> bool:
+    """Validate log file path if provided.
+    
+    Returns:
+        True if log file path is valid or not provided
+        False if log file path is invalid or cannot be created
+    """
+    log_file_path = os.getenv("LOG_FILE", "")
+    
+    if not log_file_path:
+        # No log file provided - logging disabled
+        return True
+    
+    try:
+        from pathlib import Path
+        
+        # Get the directory path
+        log_path = Path(log_file_path)
+        log_dir = log_path.parent
+        
+        # Check if directory exists or can be created
+        if not log_dir.exists():
+            try:
+                log_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"Error: Cannot create log directory: {log_dir}", file=sys.stderr)
+                print(f"Reason: {e}", file=sys.stderr)
+                return False
+        
+        # Check if directory is writable
+        if not os.access(log_dir, os.W_OK):
+            print(f"Error: Log directory is not writable: {log_dir}", file=sys.stderr)
+            return False
+        
+        # Try to create/append to the log file
+        try:
+            with open(log_file_path, "a") as f:
+                pass  # Just test if we can open it
+            return True
+        except Exception as e:
+            print(f"Error: Cannot write to log file: {log_file_path}", file=sys.stderr)
+            print(f"Reason: {e}", file=sys.stderr)
+            return False
+            
+    except Exception as e:
+        print(f"Error: Invalid log file path: {log_file_path}", file=sys.stderr)
+        print(f"Reason: {e}", file=sys.stderr)
+        return False
+
+
 def parseUrlFile(urlFile: str) -> list[Url]:
     """Parse URL file in CSV format: code_url,dataset_url,model_url
     
@@ -254,6 +304,10 @@ def calculate_scores(urls: list[Url]) -> None:
 
 def main() -> int:
     logger.log_info("Starting Hugging Face CLI...")
+
+    # Validate log file path if provided
+    if not validate_log_file():
+        return 1
 
     # Validate GitHub token if provided
     if not validate_github_token():
