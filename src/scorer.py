@@ -2,7 +2,7 @@
 Simplified scoring framework for datasets, models, and code.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 import requests
 import re
@@ -23,12 +23,11 @@ except ImportError:
 
 @dataclass
 class ScoreResult:
-    """Container for scoring results."""
     url: str
     category: UrlCategory
     score: float
     max_score: float
-    details: Dict[str, Any]
+    details: dict[str, Any]
     
     @property
     def percentage(self) -> float:
@@ -39,7 +38,7 @@ class ScoreResult:
         return f"{self.category}: {self.score:.1f}/{self.max_score:.1f} ({self.percentage:.1f}%)"
 
 
-def make_request(url: str) -> Optional[Dict]:
+def make_request(url: str) -> Optional[dict]:
     """Make HTTP request with error handling."""
     try:
         response = requests.get(url, headers={'User-Agent': 'Trustworthy-Model-Reuse-CLI/1.0'}, timeout=10)
@@ -49,7 +48,7 @@ def make_request(url: str) -> Optional[Dict]:
         return None
 
 
-def calculate_size_score(model_size_mb: float) -> Dict[str, float]:
+def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     """
     Calculate size_score based on model size using piecewise linear mapping.
     
@@ -57,7 +56,7 @@ def calculate_size_score(model_size_mb: float) -> Dict[str, float]:
         model_size_mb: Model size in megabytes
         
     Returns:
-        Dictionary mapping hardware types to compatibility scores [0,1]
+        dictionary mapping hardware types to compatibility scores [0,1]
     """
     # Hardware capacity thresholds (in MB)
     thresholds = {
@@ -83,7 +82,7 @@ def calculate_size_score(model_size_mb: float) -> Dict[str, float]:
     return size_score
 
 
-def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict[str, Any]:
+def analyze_model_repository(model_name: str, model_type: str = "model") -> dict[str, Any]:
     """
     Clone and analyze a model repository to determine actual size and characteristics.
     
@@ -92,7 +91,7 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
         model_type: Type of model ("model", "dataset", "code")
         
     Returns:
-        Dictionary containing analysis results
+        dictionary containing analysis results
     """
     analysis = {
         'total_size_mb': 0.0,
@@ -104,47 +103,47 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
         'error': None
     }
     
-    # Create temporary directory for cloning
-    temp_dir = tempfile.mkdtemp()
-    
-    try:
-        # Determine the repository URL based on type
-        if model_type == "model":
-            repo_url = f"https://huggingface.co/{model_name}"
-        elif model_type == "dataset":
-            repo_url = f"https://huggingface.co/datasets/{model_name}"
-        else:  # code
-            repo_url = f"https://github.com/{model_name}"
-        
-        # Clone the repository using GitPython or subprocess fallback
-        print(f"Cloning repository: {repo_url}")
-        
-        if GIT_PYTHON_AVAILABLE:
-            # Use GitPython for cloning
-            repo = Repo.clone_from(repo_url, temp_dir)
-        else:
-            # Fallback to subprocess (not ideal but works)
-            print("GitPython not available, using subprocess fallback")
-            result = subprocess.run(['git', 'clone', repo_url, temp_dir], 
-                                 capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
-                raise Exception(f"Git clone failed: {result.stderr}")
-        
-        # Analyze the cloned repository
-        analysis = _analyze_model_files(temp_dir, model_name, model_type)
-        
-    except Exception as e:
-        analysis['error'] = f"Failed to clone repository: {str(e)}"
-        print(f"Repository cloning failed: {e}")
-    finally:
-        # Clean up temporary directory
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+    ## Create temporary directory for cloning
+    #temp_dir = tempfile.mkdtemp()
+    #
+    #try:
+    #    # Determine the repository URL based on type
+    #    if model_type == "model":
+    #        repo_url = f"https://huggingface.co/{model_name}"
+    #    elif model_type == "dataset":
+    #        repo_url = f"https://huggingface.co/datasets/{model_name}"
+    #    else:  # code
+    #        repo_url = f"https://github.com/{model_name}"
+    #    
+    #    # Clone the repository using GitPython or subprocess fallback
+    #    print(f"Cloning repository: {repo_url}")
+    #    
+    #    if GIT_PYTHON_AVAILABLE:
+    #        # Use GitPython for cloning
+    #        repo = Repo.clone_from(repo_url, temp_dir)
+    #    else:
+    #        # Fallback to subprocess (not ideal but works)
+    #        print("GitPython not available, using subprocess fallback")
+    #        result = subprocess.run(['git', 'clone', repo_url, temp_dir], 
+    #                             capture_output=True, text=True, timeout=60)
+    #        if result.returncode != 0:
+    #            raise Exception(f"Git clone failed: {result.stderr}")
+    #    
+    #    # Analyze the cloned repository
+    #    analysis = _analyze_model_files(temp_dir, model_name, model_type)
+    #    
+    #except Exception as e:
+    #    analysis['error'] = f"Failed to clone repository: {str(e)}"
+    #    print(f"Repository cloning failed: {e}")
+    #finally:
+    #    # Clean up temporary directory
+    #    if os.path.exists(temp_dir):
+    #        shutil.rmtree(temp_dir)
     
     return analysis
 
 
-def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Dict[str, Any]:
+def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> dict[str, Any]:
     """
     Analyze model files in the cloned repository.
     

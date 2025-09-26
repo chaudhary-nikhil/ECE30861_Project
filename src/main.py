@@ -50,7 +50,7 @@ def calculate_scores(urls: list[Url]) -> None:
                 "net_score_latency": net_score_latency,
                 "url": url.link,
                 "error": "Invalid URL - Not a dataset, model, or code URL",
-                "size_score": {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0}
+                #"size_score": {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0}
             })
             
             continue
