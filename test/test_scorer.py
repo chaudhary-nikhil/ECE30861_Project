@@ -14,8 +14,13 @@ from src.scorer import (
     score_model,
     score_code,
     score_url,
+    calculate_model_bus_factor,
+    calculate_dataset_bus_factor,
+    calculate_code_bus_factor,
+    calculate_bus_factor_with_timing,
     UrlCategory,
 )
+from src.url import UrlCategory
 
 
 class TestScoreResult:
@@ -371,3 +376,29 @@ class TestScoreUrl:
         assert result.category == UrlCategory.INVALID
         assert result.score == 0.0
         assert "error" in result.details
+
+class TestBusFactor:
+    def test_model_bus_factor_no_contributors(self):
+        contributor_count = 0
+        score = calculate_model_bus_factor(contributor_count)
+        assert score == 0.0
+
+    def test_model_bus_factor_single_contributor(self):
+        contributor_count = 1
+        score = calculate_model_bus_factor(contributor_count)
+        assert score == 0.3
+
+    def test_model_bus_factor_major_org(self):
+        contributor_count = 3  # Test with multiple contributors
+        score = calculate_model_bus_factor(contributor_count)
+        assert score == 0.6  # Based on your new simplified logic
+
+    def test_dataset_bus_factor(self):
+        contributor_count = 0
+        score = calculate_dataset_bus_factor(contributor_count)
+        assert score == 0.0
+
+    def test_code_bus_factor(self):
+        contributor_count = 3
+        score = calculate_code_bus_factor(contributor_count)
+        assert score == 0.4
