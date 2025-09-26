@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 import re
 from src.url import Url, UrlCategory, determine_category
 
-
 class IntegratedDataFetcher:
     """Fetches data from different sources based on URL category"""
 
