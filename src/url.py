@@ -16,9 +16,9 @@ class UrlCategory(Enum):
 
 
 def determine_category(link: str) -> UrlCategory:
-    datasetRegex = r"https:\/\/huggingface\.co\/datasets\/(\w+\/?)+"
-    modelRegex = r"https:\/\/huggingface\.co\/(\w+\/?)+"
-    codeRegex = r"https:\/\/github.com\/(\w+\/?)+"
+    datasetRegex = r"https:\/\/huggingface\.co\/datasets\/[\w-]+(\/[\w-]+)*"
+    modelRegex = r"https:\/\/huggingface\.co\/[\w-]+(\/[\w-]+)*"
+    codeRegex = r"https:\/\/github.com\/[\w-]+(\/[\w-]+)*"
 
     if re.match(datasetRegex, link):
         return UrlCategory.DATASET
