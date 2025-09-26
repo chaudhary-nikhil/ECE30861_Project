@@ -7,7 +7,7 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 import re
-from url import Url, UrlCategory, determine_category
+from src.url import Url, UrlCategory, determine_category
 
 
 class IntegratedDataFetcher:
@@ -369,7 +369,6 @@ class IntegratedDataFetcher:
                 f"[dataset_size] PRIMARY error ({e}); trying FALLBACK: huggingface_hub"
             )
 
-        # FALLBACK: huggingface_hub
         try:
             from huggingface_hub import HfApi
 
@@ -403,7 +402,6 @@ class IntegratedDataFetcher:
                 "api_method": "error",
             }
 
-    # Helper methods
     def _extract_contributors(
         self, info: dict[str, Any], id_fallback: str
     ) -> list[str]:
@@ -420,80 +418,6 @@ class IntegratedDataFetcher:
         if license_info and isinstance(license_info, dict):
             return license_info.get("spdx_id", "")
         return ""
-
-
-# Test functions
-def test_url_categorization():
-    """Test URL categorization with various URLs"""
-    test_urls = [
-        "https://huggingface.co/google/gemma-3-270m",
-        "https://huggingface.co/datasets/squad",
-        "https://github.com/huggingface/transformers",
-        "https://invalid-url.com",
-        "https://huggingface.co/datasets/xlangai/AgentNet",
-        "https://github.com/SkyworkAI/Matrix-Game",
-    ]
-
-    print("Testing URL Categorization:")
-    print("=" * 50)
-
-    for url in test_urls:
-        url_obj = Url(url)
-        print(f"URL: {url}")
-        print(f"Category: {url_obj.category}")
-        print(f"Valid: {url_obj.category != UrlCategory.INVALID}")
-        print("-" * 30)
-
-
-def test_data_fetching():
-    """Test data fetching for each category"""
-    fetcher = IntegratedDataFetcher()
-
-    test_urls = [
-        "https://huggingface.co/microsoft/DialoGPT-small",  # Small model for testing
-        "https://huggingface.co/datasets/HuggingFaceFW/finepdfs",  # Dataset with size data
-        "https://github.com/huggingface/transformers",  # Popular repo
-    ]
-
-    print("\nTesting Data Fetching:")
-    print("=" * 50)
-
-    for url in test_urls:
-        print(f"\nFetching data for: {url}")
-        print("-" * 30)
-
-        data = fetcher.fetch_data(url)
-
-        if "error" in data:
-            print(f"Error: {data['error']}")
-        else:
-            print(f"Category: {data['category']}")
-            print(f"Name: {data['name']}")
-            print(f"License: {data.get('license', 'Not found')}")
-            print(f"README length: {len(data.get('readme', ''))}")
-
-            # Category-specific info
-            if data["category"] == "MODEL":
-                print(f"Downloads: {data.get('downloads', 0)}")
-                print(f"Files: {len(data.get('files', {}))}")
-
-            elif data["category"] == "DATASET":
-                size_info = data.get("size_info", {})
-                if "error" in size_info:
-                    print(f"Size Error: {size_info['error']}")
-                else:
-                    print(f"Size: {size_info.get('total_gb', 0):.2f} GB")
-                    if size_info.get("num_rows", 0) > 0:
-                        print(f"Rows: {size_info['num_rows']:,}")
-                    if size_info.get("memory_size_gb", 0) > 0:
-                        print(f"Memory Size: {size_info['memory_size_gb']:.2f} GB")
-                    if size_info.get("is_partial", False):
-                        print("⚠️  Size is partial (dataset too large)")
-                    print(f"API Method: {size_info.get('api_method', 'unknown')}")
-
-            elif data["category"] == "CODE":
-                print(f"Stars: {data.get('stars', 0)}")
-                print(f"Contributors: {len(data.get('contributors', []))}")
 
 
 if __name__ == "__main__":
