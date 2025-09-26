@@ -4,6 +4,9 @@ import sys
 import json
 import time
 from typing import List, Dict, Any
+from .log.logger import Logger
+
+logger = Logger()
 
 def parseUrlFile(urlFile: str) -> list[Url]:
     f = open(urlFile, "r")
@@ -175,6 +178,8 @@ def calculate_scores(urls: list[Url]) -> None:
 
 
 def main() -> int:
+    logger.log_info("Starting Hugging Face CLI...")
+
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
         return 1
