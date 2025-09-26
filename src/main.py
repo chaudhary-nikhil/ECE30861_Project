@@ -1,12 +1,9 @@
 from .url import Url, UrlCategory
 from .scorer import score_url, ScoreResult
-from .log.logger import Logger
 import sys
 import json
 import time
 from typing import List, Dict, Any
-
-logger = Logger()
 
 def parseUrlFile(urlFile: str) -> list[Url]:
     f = open(urlFile, "r")
@@ -49,7 +46,8 @@ def calculate_scores(urls: list[Url]) -> None:
                 "net_score": net_score,
                 "net_score_latency": net_score_latency,
                 "url": url.link,
-                "error": "Invalid URL - Not a dataset, model, or code URL"
+                "error": "Invalid URL - Not a dataset, model, or code URL",
+                "size_score": {"raspberry_pi": 0.0, "jetson_nano": 0.0, "desktop_pc": 0.0, "aws_server": 0.0}
             })
             
             continue
@@ -116,7 +114,8 @@ def calculate_scores(urls: list[Url]) -> None:
                 "url": url.link,
                 "raw_score": result.score,
                 "max_score": result.max_score,
-                "percentage": result.percentage
+                "percentage": result.percentage,
+                "size_score": result.details.get('size_score', {})
             }
             # Add category-specific metrics
             if url.category == UrlCategory.DATASET:
@@ -176,8 +175,6 @@ def calculate_scores(urls: list[Url]) -> None:
 
 
 def main() -> int:
-    logger.log("Hello, World!")
-
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
         return 1
