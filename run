@@ -48,7 +48,7 @@ case "$ARG" in
             exit 1
         fi
 
-        python -m src.main "$URL_FILE"
+        python3 -m src.main "$URL_FILE"
         exit 0;
         ;;
 esac
