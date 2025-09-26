@@ -4,6 +4,9 @@ import sys
 import json
 import time
 from typing import List, Dict, Any
+from .log.logger import Logger
+
+logger = Logger()
 
 def parseUrlFile(urlFile: str) -> list[Url]:
     f = open(urlFile, "r")
