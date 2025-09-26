@@ -22,11 +22,22 @@ case "$ARG" in
         exit 0
         ;;
     "test")
-        echo "Running test suite..."
+        #echo "Running test suite..."
         
-        python3 -m pytest --cov=src
-        
-        exit 0
+        output=$(python3 -m pytest --cov=src 2>&1)
+        exit_code=$?
+
+        passed=$(echo "$output" | grep -o '[0-9]* passed' | grep -o '[0-9]*' | head -1)
+        passed=${passed:-0}
+        failed=$(echo "$output" | grep -o '[0-9]* failed' | grep -o '[0-9]*' | head -1)
+        failed=${failed:-0}
+
+        total=$((passed + failed))
+        coverage=$(echo "$output" | grep "TOTAL" | awk '{print $NF}' | sed 's/%//')
+        coverage=${coverage:-0}
+
+        echo "$passed/$total test cases passed. $coverage% line coverage achieved."
+        exit $exit_code
         ;;
     *)
         URL_FILE="$ARG"
