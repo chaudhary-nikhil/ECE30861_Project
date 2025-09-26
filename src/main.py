@@ -70,16 +70,14 @@ def validate_log_file() -> bool:
         log_path = Path(log_file_path)
         log_dir = log_path.parent
         
-        # Check if directory exists or can be created
         if not log_dir.exists():
             try:
-                log_dir.mkdir(parents=True, exist_ok=True)
+                log_dir.mkdir()
             except Exception as e:
                 print(f"Error: Cannot create log directory: {log_dir}", file=sys.stderr)
                 print(f"Reason: {e}", file=sys.stderr)
                 return False
         
-        # Check if directory is writable
         if not os.access(log_dir, os.W_OK):
             print(f"Error: Log directory is not writable: {log_dir}", file=sys.stderr)
             return False
