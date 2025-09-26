@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import os
+import requests
 from typing import List, Dict, Any
 from .log.logger import Logger
 
@@ -25,7 +26,6 @@ def validate_github_token() -> bool:
         return True
     
     # Validate the token by making a test request
-    import requests
     try:
         response = requests.get(
             "https://api.github.com/user",
