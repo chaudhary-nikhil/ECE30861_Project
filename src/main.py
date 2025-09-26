@@ -230,6 +230,8 @@ def calculate_scores(urls: list[Url]) -> None:
                 "max_score": result.max_score,
                 "percentage": result.percentage,
                 "size_score": result.details.get("size_score", {}),
+                "bus_factor": result.details.get("bus_factor", 0.0),
+                "bus_factor_latency": result.details.get("bus_factor_latency", 0),
             }
             # Add category-specific metrics
             if url.category == UrlCategory.DATASET:

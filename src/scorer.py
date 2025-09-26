@@ -2,11 +2,14 @@
 Simplified scoring framework for datasets, models, and code.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 from dataclasses import dataclass
 import requests
 import re
 from .url import UrlCategory
+import time
+from .integrated_data_fetcher import IntegratedDataFetcher
+
 
 
 @dataclass
@@ -98,6 +101,74 @@ def estimate_model_size(model_name: str, model_type: str = "model") -> float:
     # Use conservative default
     return 1000  # Conservative default
 
+_data_fetcher = IntegratedDataFetcher()
+def calculate_model_bus_factor(contributor_count: int) -> float:
+    """Calculate bus factor for models based only on contributor count"""
+    if contributor_count == 0:
+        return 0.0
+    elif contributor_count == 1:
+        return 0.3
+    elif contributor_count <= 3:
+        return 0.6
+    else:
+        return 1.0
+
+def calculate_dataset_bus_factor(contributor_count: int) -> float:
+    """Calculate bus factor for datasets based only on contributor count"""
+    if contributor_count == 0:
+        return 0.0
+    elif contributor_count == 1:
+        return 0.4
+    elif contributor_count <= 2:
+        return 0.7
+    else:
+        return 1.0
+
+def calculate_code_bus_factor(contributor_count: int) -> float:
+    """Calculate bus factor for code repos based only on contributor count"""
+    if contributor_count == 0:
+        return 0.0
+    elif contributor_count == 1:
+        return 0.2
+    elif contributor_count <= 3:
+        return 0.4
+    elif contributor_count <= 10:
+        return 0.7
+    else:
+        return 1.0
+
+
+def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict[str, Any]) -> tuple:
+    """Calculate bus factor with latency measurement"""
+    
+    start_time = time.time()
+    
+    # Extract contributor count from IntegratedDataFetcher data
+    contributors = data.get('contributors', [])
+    contributor_count = len(contributors) if contributors else 0
+    
+     # DEBUG: Print contributor information
+    # print(f"DEBUG - URL: {url}")
+    # print(f"DEBUG - Category: {category.name}")
+    # print(f"DEBUG - Contributors found: {contributor_count}")
+    # print(f"DEBUG - Contributor list: {contributors[:5]}")  # Show first 5
+    # print(f"DEBUG - Raw data keys: {list(data.keys())}")
+    # print("-" * 50)
+
+    if category == UrlCategory.MODEL:
+        score = calculate_model_bus_factor(contributor_count)
+    elif category == UrlCategory.DATASET:
+        score = calculate_dataset_bus_factor(contributor_count)
+    elif category == UrlCategory.CODE:
+        score = calculate_code_bus_factor(contributor_count)
+    else:
+        score = 0.0
+    
+    end_time = time.time()
+    latency_ms = int((end_time - start_time) * 1000)
+    
+    return score, latency_ms
+
 
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
@@ -153,7 +224,9 @@ def score_dataset(url: str) -> ScoreResult:
     # Calculate dynamic size_score
     estimated_size = estimate_model_size(dataset_name, "dataset")
     size_score = calculate_size_score(estimated_size)
-
+    contributor_data = _data_fetcher.fetch_data(url)
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.DATASET, contributor_data)
+    
     return ScoreResult(
         url,
         UrlCategory.DATASET,
@@ -165,6 +238,8 @@ def score_dataset(url: str) -> ScoreResult:
             "likes": likes,
             "has_description": has_description,
             "size_score": size_score,
+            'bus_factor': bus_factor_score,
+            'bus_factor_latency': bus_factor_latency
         },
     )
 
@@ -227,6 +302,8 @@ def score_model(url: str) -> ScoreResult:
     # Calculate dynamic size_score
     estimated_size = estimate_model_size(model_name, "model")
     size_score = calculate_size_score(estimated_size)
+    contributor_data = _data_fetcher.fetch_data(url)
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.MODEL, contributor_data)
 
     return ScoreResult(
         url,
@@ -240,6 +317,8 @@ def score_model(url: str) -> ScoreResult:
             "has_model_card": has_card,
             "pipeline_tag": pipeline_tag,
             "size_score": size_score,
+            'bus_factor': bus_factor_score,
+            'bus_factor_latency': bus_factor_latency
         },
     )
 
@@ -306,7 +385,9 @@ def score_code(url: str) -> ScoreResult:
     # Calculate dynamic size_score
     estimated_size = estimate_model_size(f"{owner}/{repo}", "code")
     size_score = calculate_size_score(estimated_size)
-
+    contributor_data = _data_fetcher.fetch_data(url)
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, contributor_data)
+    
     return ScoreResult(
         url,
         UrlCategory.CODE,
@@ -320,6 +401,8 @@ def score_code(url: str) -> ScoreResult:
             "has_license": has_license,
             "language": language,
             "size_score": size_score,
+            'bus_factor': bus_factor_score,
+            'bus_factor_latency': bus_factor_latency
         },
     )
 

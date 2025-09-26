@@ -1,10 +1,9 @@
 """
 Integrated data fetcher that works with the URL categorization system
 """
-
+from typing import Optional, Dict, List, Any
 import requests
 import json
-from typing import Any
 from urllib.parse import urlparse
 import re
 from src.url import Url, UrlCategory, determine_category
@@ -13,7 +12,7 @@ class IntegratedDataFetcher:
     """Fetches data from different sources based on URL category"""
 
     def __init__(
-        self, hf_api_token: str | None = None, github_token: str | None = None
+        self, hf_api_token: Optional[str] = None, github_token: Optional[str] = None
     ):
         self.hf_api_token = hf_api_token
         self.github_token = github_token
@@ -30,7 +29,7 @@ class IntegratedDataFetcher:
         else:
             self.gh_headers = {}
 
-    def fetch_data(self, url: str) -> dict[str, Any]:
+    def fetch_data(self, url: str) -> Dict[str, Any]:
         """Main method to fetch data based on URL category"""
         url_obj = Url(url)
         try:
@@ -50,7 +49,7 @@ class IntegratedDataFetcher:
             }
 
     def _extract_license_from_tags(
-        self, info_dict: dict[str, Any], readme: str = ""
+        self, info_dict: Dict[str, Any], readme: str = ""
     ) -> str:
         """Extract license from tags where Hugging Face stores license info"""
         # Strategy 1: Check tags for license:xxx format
@@ -71,7 +70,7 @@ class IntegratedDataFetcher:
 
         return ""
 
-    def _fetch_model_data(self, url_obj: Url) -> dict[str, Any]:
+    def _fetch_model_data(self, url_obj: Url) -> Dict[str, Any]:
         """Fetch Hugging Face model data"""
         model_id = self._extract_hf_model_id(url_obj.link)
         if not model_id:
@@ -109,7 +108,7 @@ class IntegratedDataFetcher:
             "raw_info": model_info,
         }
 
-    def _fetch_dataset_data(self, url_obj: Url) -> dict[str, Any]:
+    def _fetch_dataset_data(self, url_obj: Url) -> Dict[str, Any]:
         """Fetch Hugging Face dataset data"""
         dataset_id = self._extract_hf_dataset_id(url_obj.link)
         if not dataset_id:
@@ -145,7 +144,7 @@ class IntegratedDataFetcher:
             "raw_info": dataset_info,
         }
 
-    def _fetch_code_data(self, url_obj: Url) -> dict[str, Any]:
+    def _fetch_code_data(self, url_obj: Url) -> Dict[str, Any]:
         """Fetch GitHub repository data"""
         repo_info = self._extract_github_repo(url_obj.link)
         if not repo_info:
@@ -184,19 +183,19 @@ class IntegratedDataFetcher:
         }
 
     # Hugging Face helper methods
-    def _extract_hf_model_id(self, url: str) -> str | None:
+    def _extract_hf_model_id(self, url: str) -> Optional[str]:
         """Extract model ID from HF model URL"""
         # https://huggingface.co/google/gemma-3-270m -> google/gemma-3-270m
         match = re.search(r"huggingface\.co/([^/]+/[^/?]+)", url)
         return match.group(1) if match else None
 
-    def _extract_hf_dataset_id(self, url: str) -> str | None:
+    def _extract_hf_dataset_id(self, url: str) -> Optional[str]:
         """Extract dataset ID from HF dataset URL"""
         # https://huggingface.co/datasets/squad -> squad
         match = re.search(r"huggingface\.co/datasets/([^/?]+(?:/[^/?]+)?)", url)
         return match.group(1) if match else None
 
-    def _get_hf_model_info(self, model_id: str) -> dict[str, Any]:
+    def _get_hf_model_info(self, model_id: str) -> Dict[str, Any]:
         """Get model info from HF API"""
         try:
             url = f"https://huggingface.co/api/models/{model_id}"
@@ -207,7 +206,7 @@ class IntegratedDataFetcher:
             print(f"Error fetching model info: {e}")
             return {}
 
-    def _get_hf_model_files(self, model_id: str) -> dict[str, Any]:
+    def _get_hf_model_files(self, model_id: str) -> Dict[str, Any]:
         """Get model files from HF API"""
         try:
             url = f"https://huggingface.co/api/models/{model_id}/tree/main"
@@ -237,7 +236,7 @@ class IntegratedDataFetcher:
         except Exception:
             return ""
 
-    def _get_hf_dataset_info(self, dataset_id: str) -> dict[str, Any]:
+    def _get_hf_dataset_info(self, dataset_id: str) -> Dict[str, Any]:
         """Get dataset info from HF API"""
         try:
             url = f"https://huggingface.co/api/datasets/{dataset_id}"
@@ -248,7 +247,7 @@ class IntegratedDataFetcher:
             print(f"Error fetching dataset info: {e}")
             return {}
 
-    def _get_hf_dataset_files(self, dataset_id: str) -> dict[str, Any]:
+    def _get_hf_dataset_files(self, dataset_id: str) -> Dict[str, Any]:
         """Get dataset files from HF API"""
         try:
             url = f"https://huggingface.co/api/datasets/{dataset_id}/tree/main"
@@ -278,13 +277,13 @@ class IntegratedDataFetcher:
             return ""
 
     # GitHub helper methods
-    def _extract_github_repo(self, url: str) -> tuple | None:
+    def _extract_github_repo(self, url: str) -> Optional[tuple]:
         """Extract owner/repo from GitHub URL"""
         # https://github.com/owner/repo -> (owner, repo)
         match = re.search(r"github\.com/([^/]+)/([^/?]+)", url)
         return (match.group(1), match.group(2)) if match else None
 
-    def _get_github_repo_info(self, owner: str, repo: str) -> dict[str, Any]:
+    def _get_github_repo_info(self, owner: str, repo: str) -> Dict[str, Any]:
         """Get repo info from GitHub API"""
         try:
             url = f"https://api.github.com/repos/{owner}/{repo}"
@@ -310,7 +309,7 @@ class IntegratedDataFetcher:
         except Exception:
             return ""
 
-    def _get_github_contributors(self, owner: str, repo: str) -> list[str]:
+    def _get_github_contributors(self, owner: str, repo: str) -> List[str]:
         """Get contributors from GitHub repo"""
         try:
             url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
@@ -322,7 +321,7 @@ class IntegratedDataFetcher:
         except Exception:
             return []
 
-    def _get_github_recent_commits(self, owner: str, repo: str) -> list[dict[str, Any]]:
+    def _get_github_recent_commits(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         """Get recent commits for activity analysis"""
         try:
             url = f"https://api.github.com/repos/{owner}/{repo}/commits"
@@ -335,7 +334,7 @@ class IntegratedDataFetcher:
             return []
 
     # Size calculation methods
-    def _extract_dataset_size(self, dataset_id: str) -> dict[str, Any]:
+    def _extract_dataset_size(self, dataset_id: str) -> Dict[str, Any]:
         """Dataset size using Dataset Viewer API with a huggingface_hub fallback."""
         # PRIMARY: Dataset Viewer API
         try:
@@ -402,8 +401,8 @@ class IntegratedDataFetcher:
             }
 
     def _extract_contributors(
-        self, info: dict[str, Any], id_fallback: str
-    ) -> list[str]:
+        self, info: Dict[str, Any], id_fallback: str
+    ) -> List[str]:
         """Extract contributors from HF API response"""
         if "author" in info and info["author"]:
             return [info["author"]]
@@ -411,7 +410,7 @@ class IntegratedDataFetcher:
             # Use organization name as fallback
             return [id_fallback.split("/")[0]]
 
-    def _extract_github_license(self, repo_data: dict[str, Any]) -> str:
+    def _extract_github_license(self, repo_data: Dict[str, Any]) -> str:
         """Extract license from GitHub repo data"""
         license_info = repo_data.get("license")
         if license_info and isinstance(license_info, dict):
