@@ -72,7 +72,7 @@ def validate_log_file() -> bool:
         
         if not log_dir.exists():
             try:
-                log_dir.mkdir()
+                log_dir.mkdir(exist_ok=True)
             except Exception as e:
                 print(f"Error: Cannot create log directory: {log_dir}", file=sys.stderr)
                 print(f"Reason: {e}", file=sys.stderr)
