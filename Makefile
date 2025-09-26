@@ -51,4 +51,9 @@ check-best-run:
 	--header 'Content-Type: application/json' \
 	--data '{"group": 27,"gh_token": "$(GH_TOKEN)"}'
 
-.PHONY: test register schedule monitor check-run check-best-run
+get-logfile:
+	@curl --location --request GET 'http://dl-berlin.ecn.purdue.edu/api/log/download' \
+	--header 'Content-Type: application/json' \
+	--data '{"group": 27,"gh_token": "$(GH_TOKEN)","log": "$(PATH)"}'
+
+.PHONY: test register schedule monitor check-run check-best-run get-logfile
