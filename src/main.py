@@ -261,8 +261,29 @@ def calculate_scores(urls: list[Url]) -> None:
                 )
             ndjson_results.append(ndjson_entry)
         else:
+            # Failed to analyze - still add to NDJSON with error
             print(
                 f"    Failed to analyze: {result.details.get('error', 'Unknown error')}"
+            )
+            
+            # Measure net_score calculation latency for failed URLs
+            start_time = time.perf_counter()
+            net_score = 0.0
+            end_time = time.perf_counter()
+            net_score_latency = round(
+                (end_time - start_time) * 1000
+            )  # Convert to milliseconds and round
+            
+            ndjson_results.append(
+                {
+                    "name": result.details.get("name", "unknown"),
+                    "category": url.category.name,
+                    "net_score": net_score,
+                    "net_score_latency": net_score_latency,
+                    "url": url.link,
+                    "error": result.details.get("error", "Failed to score"),
+                    "size_score": result.details.get("size_score", {}),
+                }
             )
 
     # Display summary
