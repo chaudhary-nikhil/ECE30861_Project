@@ -3,10 +3,51 @@ from .scorer import score_url, ScoreResult
 import sys
 import json
 import time
+import os
 from typing import List, Dict, Any
 from .log.logger import Logger
 
 logger = Logger()
+
+
+def validate_github_token() -> bool:
+    """Validate GitHub token if provided.
+    
+    Returns:
+        True if token is valid or not provided (will use rate-limited access)
+        False if token is provided but invalid
+    """
+    github_token = os.getenv("GITHUB_TOKEN", "")
+    
+    if not github_token:
+        # No token provided - will use rate-limited access
+        logger.log_info("No GITHUB_TOKEN provided, using rate-limited API access")
+        return True
+    
+    # Validate the token by making a test request
+    import requests
+    try:
+        response = requests.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"token {github_token}"},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            logger.log_info("GitHub token validated successfully")
+            return True
+        elif response.status_code == 401:
+            print("Error: Invalid GITHUB_TOKEN provided", file=sys.stderr)
+            logger.log_info("Invalid GITHUB_TOKEN detected")
+            return False
+        else:
+            # Other errors - continue with caution
+            logger.log_info(f"GitHub token validation returned status {response.status_code}")
+            return True
+    except Exception as e:
+        # Network error or other issue - continue anyway
+        logger.log_debug(f"Token validation failed with error: {e}")
+        return True
 
 
 def parseUrlFile(urlFile: str) -> list[Url]:
@@ -213,6 +254,10 @@ def calculate_scores(urls: list[Url]) -> None:
 
 def main() -> int:
     logger.log_info("Starting Hugging Face CLI...")
+
+    # Validate GitHub token if provided
+    if not validate_github_token():
+        return 1
 
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
