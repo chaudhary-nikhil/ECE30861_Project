@@ -10,14 +10,29 @@ logger = Logger()
 
 
 def parseUrlFile(urlFile: str) -> list[Url]:
+    """Parse URL file in CSV format: code_url,dataset_url,model_url
+    
+    Each line can contain up to 3 URLs separated by commas.
+    Empty fields are represented by empty strings between commas.
+    Example: ,,model_url means only model URL is provided.
+    """
     f = open(urlFile, "r")
     url_list: list[Url] = list()
 
-    link_list: list[str] = f.read().split("\n")
-    for link in link_list:
-        if link == "":  # Empty link ie. empty line
+    lines: list[str] = f.read().strip().split("\n")
+    for line in lines:
+        if line.strip() == "":  # Skip empty lines
             continue
-        url_list.append(Url(link))
+        
+        # Split by comma to get individual URLs
+        urls_in_line = line.split(",")
+        
+        # Process each URL in the line
+        for url_string in urls_in_line:
+            url_string = url_string.strip()
+            if url_string:  # Only add non-empty URLs
+                url_list.append(Url(url_string))
+    
     f.close()
     return url_list
 
