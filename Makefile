@@ -27,7 +27,8 @@ lint-check:
 	@pyright $(PYFILES) > /dev/null || (pyright $(PYFILES) && exit 1)
 
 test:
-	python3 -m pytest --cov=src
+	@python3 -m pytest --cov=src --cov-report=html --cov-report=term-missing
+	@mv htmlcov/index.html dev/cov.html && rm -rf htmlcov
 
 check-token:
 	@if [ -z "$(GH_TOKEN)" ]; then \
