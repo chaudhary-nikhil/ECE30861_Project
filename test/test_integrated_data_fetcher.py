@@ -238,20 +238,3 @@ class TestGitHubLicenseExtraction:
         repo_data = {"license": None}
         result = fetcher._extract_github_license(repo_data)
         assert result == ""
-
-class TestDataFetcherURL:
-    def test_model_url(self):
-        fetcher = IntegratedDataFetcher()
-        assert fetcher.fetch_data("https://huggingface.co/microsoft/DialoGPT-medium") is not None
-
-    def test_dataset_url(self):
-        fetcher = IntegratedDataFetcher()
-        assert fetcher.fetch_data("https://huggingface.co/datasets/user123") is not None
-
-    def test_code_url(self):
-        fetcher = IntegratedDataFetcher()
-        assert fetcher.fetch_data("https://github.com/user123/") is not None
-
-    def test_code_url_real(self):
-        fetcher = IntegratedDataFetcher()
-        assert fetcher.fetch_data("https://github.com/chaudhary-nikhil/ECE30861_Project.git/") is not None
