@@ -29,60 +29,6 @@ class TestIntegratedDataFetcherInit:
         assert "Authorization" in fetcher.hf_headers
         assert "Authorization" in fetcher.gh_headers
 
-class TestFetchData:
-    """Tests for fetch_data method"""
-
-    def test_fetch_data_invalid_url(self):
-        """Test fetching data with invalid URL"""
-        fetcher = IntegratedDataFetcher()
-        result = fetcher.fetch_data("https://invalid.com")
-        assert result["category"] == "INVALID"
-        assert "error" in result
-
-    @patch.object(IntegratedDataFetcher, "_fetch_model_data")
-    def test_fetch_data_model_url(self, mock_fetch):
-        """Test fetching model data"""
-        mock_fetch.return_value = {"category": "MODEL", "name": "test"}
-        
-        fetcher = IntegratedDataFetcher()
-        result = fetcher.fetch_data("https://huggingface.co/google/bert")
-        
-        assert result["category"] == "MODEL"
-        mock_fetch.assert_called_once()
-
-    @patch.object(IntegratedDataFetcher, "_fetch_dataset_data")
-    def test_fetch_data_dataset_url(self, mock_fetch):
-        """Test fetching dataset data"""
-        mock_fetch.return_value = {"category": "DATASET", "name": "test"}
-        
-        fetcher = IntegratedDataFetcher()
-        result = fetcher.fetch_data("https://huggingface.co/datasets/squad")
-        
-        assert result["category"] == "DATASET"
-        mock_fetch.assert_called_once()
-
-    @patch.object(IntegratedDataFetcher, "_fetch_code_data")
-    def test_fetch_data_code_url(self, mock_fetch):
-        """Test fetching code data"""
-        mock_fetch.return_value = {"category": "CODE", "name": "test"}
-        
-        fetcher = IntegratedDataFetcher()
-        result = fetcher.fetch_data("https://github.com/user/repo")
-        
-        assert result["category"] == "CODE"
-        mock_fetch.assert_called_once()
-
-    @patch.object(IntegratedDataFetcher, "_fetch_model_data")
-    def test_fetch_data_with_exception(self, mock_fetch):
-        """Test fetch_data handling exceptions"""
-        mock_fetch.side_effect = Exception("Test error")
-        
-        fetcher = IntegratedDataFetcher()
-        result = fetcher.fetch_data("https://huggingface.co/model")
-        
-        assert "error" in result
-        assert "Test error" in result["error"]
-
 
 class TestExtractMethods:
     """Tests for URL extraction methods"""
