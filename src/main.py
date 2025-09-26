@@ -175,6 +175,8 @@ def calculate_scores(urls: list[Url]) -> None:
 
 
 def main() -> int:
+    logger.log_info("Starting Hugging Face CLI...")
+
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
         return 1
