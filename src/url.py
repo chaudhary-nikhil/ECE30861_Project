@@ -40,6 +40,6 @@ class Url:
                 print(f"{link} Invalid URL: Not a dataset, model or code URL")
         else:
             self.category = category
-    
+
     def __str__(self) -> str:
-       return str(self.link + " Category: " + self.category.__str__())
+        return str(self.link + " Category: " + self.category.__str__())

@@ -49,23 +49,23 @@ class Logger:
         log_entry: str = f"[{timestamp}] {level_name}: {message}\n"
 
         try:
-            with open(self.log_file_path, 'a', encoding='utf-8') as f:
+            with open(self.log_file_path, "a", encoding="utf-8") as f:
                 f.write(log_entry)
         except Exception as e:
             # TODO(rbaker) consider failing hard if logging fails
             ...
 
     def log_info(self, message: str) -> None:
-        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._write_log(LogLevel.INFO, message, timestamp)
 
     def log_debug(self, message: str) -> None:
-        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._write_log(LogLevel.DEBUG, message, timestamp)
 
     def get_config(self) -> dict[str, Any]:
         return {
             "log_file": self.log_file_path,
             "log_level": self.log_level,
-            "log_level_name": LogLevel(self.log_level).name
+            "log_level_name": LogLevel(self.log_level).name,
         }
