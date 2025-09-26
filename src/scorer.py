@@ -6,21 +6,7 @@ from typing import Any, Optional
 from dataclasses import dataclass
 import requests
 import re
-import os
-import tempfile
-import shutil
-import json
-from pathlib import Path
 from .url import UrlCategory
-
-# Try to import GitPython, fall back to subprocess if not available
-try:
-    from git import Repo
-
-    GIT_PYTHON_AVAILABLE = True
-except ImportError:
-    GIT_PYTHON_AVAILABLE = False
-    import subprocess
 
 
 @dataclass
@@ -94,185 +80,9 @@ def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     return size_score
 
 
-def analyze_model_repository(
-    model_name: str, model_type: str = "model"
-) -> dict[str, Any]:
-    """
-    Clone and analyze a model repository to determine actual size and characteristics.
-
-    Args:
-        model_name: Name of the model (e.g., "google/gemma-3-270m")
-        model_type: Type of model ("model", "dataset", "code")
-
-    Returns:
-        dictionary containing analysis results
-    """
-    analysis = {
-        "total_size_mb": 0.0,
-        "weights_size_mb": 0.0,
-        "config_info": {},
-        "has_tokenizer": False,
-        "architecture": "unknown",
-        "model_files": [],
-        "error": None,
-    }
-
-    ## Create temporary directory for cloning
-    # temp_dir = tempfile.mkdtemp()
-    #
-    # try:
-    #    # Determine the repository URL based on type
-    #    if model_type == "model":
-    #        repo_url = f"https://huggingface.co/{model_name}"
-    #    elif model_type == "dataset":
-    #        repo_url = f"https://huggingface.co/datasets/{model_name}"
-    #    else:  # code
-    #        repo_url = f"https://github.com/{model_name}"
-    #
-    #    # Clone the repository using GitPython or subprocess fallback
-    #    print(f"Cloning repository: {repo_url}")
-    #
-    #    if GIT_PYTHON_AVAILABLE:
-    #        # Use GitPython for cloning
-    #        repo = Repo.clone_from(repo_url, temp_dir)
-    #    else:
-    #        # Fallback to subprocess (not ideal but works)
-    #        print("GitPython not available, using subprocess fallback")
-    #        result = subprocess.run(['git', 'clone', repo_url, temp_dir],
-    #                             capture_output=True, text=True, timeout=60)
-    #        if result.returncode != 0:
-    #            raise Exception(f"Git clone failed: {result.stderr}")
-    #
-    #    # Analyze the cloned repository
-    #    analysis = _analyze_model_files(temp_dir, model_name, model_type)
-    #
-    # except Exception as e:
-    #    analysis['error'] = f"Failed to clone repository: {str(e)}"
-    #    print(f"Repository cloning failed: {e}")
-    # finally:
-    #    # Clean up temporary directory
-    #    if os.path.exists(temp_dir):
-    #        shutil.rmtree(temp_dir)
-
-    return analysis
-
-
-def _analyze_model_files(
-    repo_path: str, model_name: str, model_type: str
-) -> dict[str, Any]:
-    """
-    Analyze model files in the cloned repository.
-
-    Args:
-        repo_path: Path to the cloned repository
-        model_name: Name of the model
-        model_type: Type of model
-
-    Returns:
-        Analysis results
-    """
-    analysis = {
-        "total_size_mb": 0.0,
-        "weights_size_mb": 0.0,
-        "config_info": {},
-        "has_tokenizer": False,
-        "architecture": "unknown",
-        "model_files": [],
-        "error": None,
-    }
-
-    try:
-        print(f"Analyzing files in: {repo_path}")
-
-        # Walk through the repository and analyze files
-        total_size = 0
-        weights_size = 0
-        model_files = []
-        tokenizer_files = []
-        config_files = []
-
-        for root, dirs, files in os.walk(repo_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                file_size_mb = os.path.getsize(file_path) / (
-                    1024 * 1024
-                )  # Convert to MB
-                total_size += file_size_mb
-
-                # Check for model weight files
-                if file in [
-                    "pytorch_model.bin",
-                    "tf_model.h5",
-                    "model.safetensors",
-                    "pytorch_model-00001-of-00001.bin",
-                ]:
-                    weights_size += file_size_mb
-                    model_files.append(
-                        {
-                            "name": file,
-                            "size_mb": round(file_size_mb, 2),
-                            "path": file_path,
-                        }
-                    )
-
-                # Check for tokenizer files
-                elif file in [
-                    "tokenizer.json",
-                    "vocab.txt",
-                    "tokenizer_config.json",
-                    "tokenizer.model",
-                ]:
-                    tokenizer_files.append(
-                        {"name": file, "size_mb": round(file_size_mb, 2)}
-                    )
-
-                # Check for config files
-                elif file in ["config.json", "model_index.json", "README.md"]:
-                    config_files.append(
-                        {"name": file, "size_mb": round(file_size_mb, 2)}
-                    )
-
-        # Update analysis results
-        analysis["total_size_mb"] = round(total_size, 2)
-        analysis["weights_size_mb"] = round(weights_size, 2)
-        analysis["model_files"] = model_files
-        analysis["has_tokenizer"] = len(tokenizer_files) > 0
-
-        # Analyze config.json if present
-        config_path = os.path.join(repo_path, "config.json")
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    config_data = json.load(f)
-                    analysis["config_info"] = config_data
-
-                    # Extract architecture information
-                    if "model_type" in config_data:
-                        analysis["architecture"] = config_data["model_type"]
-                    elif "architectures" in config_data:
-                        analysis["architecture"] = (
-                            config_data["architectures"][0]
-                            if config_data["architectures"]
-                            else "unknown"
-                        )
-            except Exception as e:
-                print(f"Failed to parse config.json: {e}")
-
-        print(
-            f"Analysis complete: {analysis['total_size_mb']}MB total, {analysis['weights_size_mb']}MB weights"
-        )
-
-    except Exception as e:
-        analysis["error"] = str(e)
-        print(f"File analysis failed: {e}")
-
-    return analysis
-
-
 def estimate_model_size(model_name: str, model_type: str = "model") -> float:
     """
-    Estimate model size using repository analysis only.
-    No API fallback - purely repository-based analysis.
+    Estimate model size with a conservative default.
 
     Args:
         model_name: Name of the model (e.g., "google/gemma-3-270m")
@@ -285,21 +95,14 @@ def estimate_model_size(model_name: str, model_type: str = "model") -> float:
         # Default size for unknown models
         return 500  # Default medium size
 
-    # Perform repository analysis
-    analysis = analyze_model_repository(model_name, model_type)
-
-    if analysis["error"] is None:
-        return analysis["total_size_mb"]
-    else:
-        # If repository analysis fails, use conservative default
-        # This ensures we don't rely on API data
-        return 1000  # Conservative default for failed analysis
+    # Use conservative default
+    return 1000  # Conservative default
 
 
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
     # Extract dataset name
-    match = re.search(r"https://huggingface\.co/datasets/((\w+\/?)+)", url)
+    match = re.search(r"https://huggingface\.co/datasets/([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size = estimate_model_size("unknown", "dataset")
         size_score = calculate_size_score(estimated_size)
@@ -316,7 +119,6 @@ def score_dataset(url: str) -> ScoreResult:
     data = make_request(api_url)
 
     if not data:
-        # Use repository analysis for fallback
         estimated_size = estimate_model_size(dataset_name, "dataset")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
@@ -348,7 +150,7 @@ def score_dataset(url: str) -> ScoreResult:
     if has_description:
         score += 2.0
 
-    # Calculate dynamic size_score based on repository analysis only
+    # Calculate dynamic size_score
     estimated_size = estimate_model_size(dataset_name, "dataset")
     size_score = calculate_size_score(estimated_size)
 
@@ -370,7 +172,7 @@ def score_dataset(url: str) -> ScoreResult:
 def score_model(url: str) -> ScoreResult:
     """Score a Hugging Face model."""
     # Extract model name
-    match = re.search(r"https://huggingface\.co/([^/]+/[^/]+)", url)
+    match = re.search(r"https://huggingface\.co/([\w-]+/[\w-]+)", url)
     if not match:
         estimated_size = estimate_model_size("unknown", "model")
         size_score = calculate_size_score(estimated_size)
@@ -422,7 +224,7 @@ def score_model(url: str) -> ScoreResult:
     if pipeline_tag:
         score += 1.0
 
-    # Calculate dynamic size_score based on repository analysis only
+    # Calculate dynamic size_score
     estimated_size = estimate_model_size(model_name, "model")
     size_score = calculate_size_score(estimated_size)
 
@@ -445,7 +247,7 @@ def score_model(url: str) -> ScoreResult:
 def score_code(url: str) -> ScoreResult:
     """Score a GitHub repository."""
     # Extract repo info
-    match = re.search(r"https://github\.com/([^/]+)/([^/]+)", url)
+    match = re.search(r"https://github\.com/([\w-]+)/([\w-]+)", url)
     if not match:
         estimated_size = estimate_model_size("unknown", "code")
         size_score = calculate_size_score(estimated_size)
@@ -501,7 +303,7 @@ def score_code(url: str) -> ScoreResult:
     if language:
         score += 1.0
 
-    # Calculate dynamic size_score based on repository analysis only
+    # Calculate dynamic size_score
     estimated_size = estimate_model_size(f"{owner}/{repo}", "code")
     size_score = calculate_size_score(estimated_size)
 
