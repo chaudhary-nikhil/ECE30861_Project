@@ -177,7 +177,7 @@ def calculate_scores(urls: list[Url]) -> None:
 
         # Trustworthiness assessment
         if avg_percentage >= 80:
-            print("🏆 Trustworthiness Level: EXCELLENT")
+            print("Trustworthiness Level: EXCELLENT")
         elif avg_percentage >= 60:
             print(" Trustworthiness Level: GOOD")
         elif avg_percentage >= 40:
