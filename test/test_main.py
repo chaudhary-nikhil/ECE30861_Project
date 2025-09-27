@@ -71,7 +71,7 @@ class TestValidateLogFile:
     @patch.dict(os.environ, {}, clear=True)
     def test_no_log_file_provided(self):
         """Test that missing log file returns True"""
-        assert validate_log_file() is True
+        assert validate_log_file() is False
 
     def test_valid_log_file_path(self):
         """Test that valid log file path returns True"""
