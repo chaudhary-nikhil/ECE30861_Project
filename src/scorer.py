@@ -148,12 +148,12 @@ def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict
     contributor_count = len(contributors) if contributors else 0
 
      # DEBUG: Print contributor information
-    # print(f"DEBUG - URL: {url}")
-    # print(f"DEBUG - Category: {category.name}")
-    # print(f"DEBUG - Contributors found: {contributor_count}")
-    # print(f"DEBUG - Contributor list: {contributors[:5]}")  # Show first 5
-    # print(f"DEBUG - Raw data keys: {list(data.keys())}")
-    # print("-" * 50)
+    # loggerInstance.logger.log_info(f"DEBUG - URL: {url}")
+    # loggerInstance.logger.log_info(f"DEBUG - Category: {category.name}")
+    # loggerInstance.logger.log_info(f"DEBUG - Contributors found: {contributor_count}")
+    # loggerInstance.logger.log_info(f"DEBUG - Contributor list: {contributors[:5]}")  # Show first 5
+    # loggerInstance.logger.log_info(f"DEBUG - Raw data keys: {list(data.keys())}")
+    # loggerInstance.logger.log_info("-" * 50)
 
     if category == UrlCategory.MODEL:
         score = calculate_model_bus_factor(contributor_count)
