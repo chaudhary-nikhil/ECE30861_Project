@@ -352,7 +352,7 @@ def calculate_scores(urls: list[Url]) -> None:
     output_filename = "scores.ndjson"
     with open(output_filename, "w") as f:
         for ndjson_entry in ndjson_results:
-            f.write(json.dumps(ndjson_entry) + "\n")
+            f.write(json.dumps(ndjson_entry).replace(" ", "") + "\n")
 
     print(f"\n Results written to: {output_filename}")
 
