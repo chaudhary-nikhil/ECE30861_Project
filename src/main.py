@@ -8,9 +8,6 @@ import requests
 from typing import List, Dict, Any
 from .log.logger import Logger
 
-logger: Logger | None = None # Don't want to initialize the logger without verifying that the log file exists
-
-
 def validate_github_token() -> bool:
     """Validate GitHub token if provided.
 
@@ -37,7 +34,7 @@ def validate_github_token() -> bool:
             logger.log_info("GitHub token validated successfully")
             return True
         elif response.status_code == 401:
-            print("Error: Invalid GITHUB_TOKEN provided", file=sys.stderr)
+            logger.log_info("Error: Invalid GITHUB_TOKEN provided", file=sys.stderr)
             logger.log_info("Invalid GITHUB_TOKEN detected")
             return False
         else:
@@ -144,9 +141,9 @@ def parseUrlFile(urlFile: str) -> list[UrlSet]:
 def calculate_scores(urlsets: list[UrlSet]) -> None:
     """Calculate and display trustworthiness scores for URLs."""
 
-    print("\n" + "=" * 80)
-    print("TRUSTWORTHINESS SCORING RESULTS")
-    print("=" * 80)
+    logger.log_info("\n" + "=" * 80)
+    logger.log_info("TRUSTWORTHINESS SCORING RESULTS")
+    logger.log_info("=" * 80)
 
     total_score = 0.0
     total_max_score = 0.0
@@ -158,8 +155,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
         dataset: Url | None = urlset.dataset
         model:Url = urlset.model
         if model.category == UrlCategory.INVALID:
-            print(f"\n Invalid: {model.link}")
-            print("   Status: Invalid URL - Not a dataset, model, or code URL")
+            logger.log_info(f"\n Invalid: {model.link}")
+            logger.log_info("   Status: Invalid URL - Not a dataset, model, or code URL")
             # Add to NDJSON even for invalid URLs
             # Measure net_score calculation latency for invalid URLs (should be 0)
             start_time = time.perf_counter()
@@ -196,8 +193,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
             continue
 
-        print(f"\n Analyzing: {model.link}")
-        print(f"   Category: {model.category.name}")
+        logger.log_info(f"\n Analyzing: {model.link}")
+        logger.log_info(f"   Category: {model.category.name}")
 
         # Calculate score
         modelResultOptional: ScoreResult | None= score_url(model.link, model.category)
@@ -212,39 +209,39 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
         # Display results
         if modelResult.score > 0:
-            print(f"   Score: {modelResult}")
-            print("   Details:")
+            logger.log_info(f"   Score: {modelResult}")
+            logger.log_info("   Details:")
 
             # Show key details based on category
   #          if url.category == UrlCategory.DATASET:
   #              if result.details.get("downloads", 0) > 0:
-  #                  print(f"     • Downloads: {result.details['downloads']:,}")
+  #                  logger.log_info(f"     • Downloads: {result.details['downloads']:,}")
   #              if result.details.get("likes", 0) > 0:
-  #                  print(f"     • Likes: {result.details['likes']}")
+  #                  logger.log_info(f"     • Likes: {result.details['likes']}")
   #              if result.details.get("has_description"):
-  #                  print(f"     • Has Description: ")
+  #                  logger.log_info(f"     • Has Description: ")
   #
   #         elif url.category == UrlCategory.MODEL:
             if modelResult.details.get("downloads", 0) > 0:
-                print(f"     • Downloads: {modelResult.details['downloads']:,}")
+                logger.log_info(f"     • Downloads: {modelResult.details['downloads']:,}")
             if modelResult.details.get("likes", 0) > 0:
-                print(f"     • Likes: {modelResult.details['likes']}")
+                logger.log_info(f"     • Likes: {modelResult.details['likes']}")
             if modelResult.details.get("has_model_card"):
-                print("     • Has Model Card: ")
+                logger.log_info("     • Has Model Card: ")
             if modelResult.details.get("pipeline_tag"):
-                print(f"     • Pipeline Tag: {modelResult.details['pipeline_tag']}")
+                logger.log_info(f"     • Pipeline Tag: {modelResult.details['pipeline_tag']}")
 #
 #            elif url.category == UrlCategory.CODE:
 #                if result.details.get("stars", 0) > 0:
-#                    print(f"     • Stars: {result.details['stars']:,}")
+#                    logger.log_info(f"     • Stars: {result.details['stars']:,}")
 #                if result.details.get("forks", 0) > 0:
-#                    print(f"     • Forks: {result.details['forks']:,}")
+#                    logger.log_info(f"     • Forks: {result.details['forks']:,}")
 #                if result.details.get("has_description"):
-#                    print(f"     • Has Description: ")
+#                    logger.log_info(f"     • Has Description: ")
 #                if result.details.get("has_license"):
-#                    print(f"     • Has License: ")
+#                    logger.log_info(f"     • Has License: ")
 #                if result.details.get("language"):
-#                    print(f"     • Language: {result.details['language']}")
+#                    logger.log_info(f"     • Language: {result.details['language']}")
 
             # Add to totals
             total_score += modelResult.score
@@ -302,7 +299,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
             ndjson_results.append(ndjson_entry)
         else:
             # Failed to analyze - still add to NDJSON with error
-            print(
+            logger.log_info(
                 f"    Failed to analyze: {modelResult.details.get('error', 'Unknown error')}"
             )
 
@@ -341,30 +338,30 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
             )
 
     # Display summary
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-    print(f"Total URLs analyzed: {valid_urls}")
+    logger.log_info("\n" + "=" * 80)
+    logger.log_info("SUMMARY")
+    logger.log_info("=" * 80)
+    logger.log_info(f"Total URLs analyzed: {valid_urls}")
     if valid_urls > 0:
         avg_score = total_score / valid_urls
         avg_percentage = (
             (total_score / total_max_score) * 100 if total_max_score > 0 else 0
         )
-        print(
+        logger.log_info(
             f"Average Score: {avg_score:.1f}/{total_max_score / valid_urls:.1f} ({avg_percentage:.1f}%)"
         )
 
         # Trustworthiness assessment
         if avg_percentage >= 80:
-            print("Trustworthiness Level: EXCELLENT")
+            logger.log_info("Trustworthiness Level: EXCELLENT")
         elif avg_percentage >= 60:
-            print(" Trustworthiness Level: GOOD")
+            logger.log_info(" Trustworthiness Level: GOOD")
         elif avg_percentage >= 40:
-            print("  Trustworthiness Level: MODERATE")
+            logger.log_info("  Trustworthiness Level: MODERATE")
         else:
-            print(" Trustworthiness Level: LOW")
+            logger.log_info(" Trustworthiness Level: LOW")
     else:
-        print("No valid URLs found for analysis.")
+        logger.log_info("No valid URLs found for analysis.")
 
     # Write NDJSON output file
     output_filename = "scores.ndjson"
@@ -372,7 +369,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
         for ndjson_entry in ndjson_results:
             f.write(json.dumps(ndjson_entry).replace(" ", "") + "\n")
 
-    print(f"\n Results written to: {output_filename}")
+    logger.log_info(f"\n Results written to: {output_filename}")
 
 
 def main() -> int:
@@ -391,13 +388,13 @@ def main() -> int:
 
 
     if (len(sys.argv)) != 2:
-        print("URL_FILE is a required argument.")
+        logger.log_info("URL_FILE is a required argument.")
         return 1
 
     urlFile = sys.argv[1]
     urls: list[UrlSet] = parseUrlFile(urlFile)
     for url in urls:
-        print(url)
+        logger.log_info(str(url))
 
     calculate_scores(urls)
 
