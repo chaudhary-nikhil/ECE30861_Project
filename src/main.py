@@ -67,6 +67,10 @@ def validate_log_file() -> bool:
 
         # Get the directory path
         log_path = Path(log_file_path)
+        # The log file must already exist, according to an instructor note on Piazza
+        if not log_path.exists():
+            print(f"Error: Log file does not exist: {log_path}")
+            return False
         log_dir = log_path.parent
 
         # Don't try to create nested directories that don't exist
@@ -86,10 +90,6 @@ def validate_log_file() -> bool:
             print(f"Error: Log directory is not writable: {log_dir}", file=sys.stderr)
             return False
 
-        # The log file must already exist, according to an instructor note on Piazza
-        if not log_path.exists():
-            print(f"Error: Log file does not exist: {log_path}")
-            return False
 
         # Try to append to the log file
         try:
