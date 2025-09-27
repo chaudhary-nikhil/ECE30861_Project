@@ -1,6 +1,9 @@
 from enum import Enum
 import re
 
+from .log.logger import Logger
+from .log import loggerInstance
+
 # A URL consists of the URL string and a category: dataset, model, code.
 # Relevant regexes:
 #   Dataset URL (assuming for now that Hugging Face is the only source): https:\/\/huggingface\.co\/datasets\/(\w+\/?)+
@@ -37,7 +40,7 @@ class Url:
         if category == UrlCategory.INVALID:
             self.category = determine_category(link)
             if self.category == UrlCategory.INVALID:
-                logger.log_info(f"{link} Invalid URL: Not a dataset, model or code URL")
+                loggerInstance.logger.log_info(f"{link} Invalid URL: Not a dataset, model or code URL")
         else:
             self.category = category
 
@@ -52,7 +55,7 @@ class UrlSet:
         self.dataset = dataset
         self.model = model
         if (model.category != UrlCategory.MODEL) or (dataset is not None and dataset.category != UrlCategory.DATASET) or (code is not None and code.category != UrlCategory.CODE):
-            logger.log_info("Invalid URLs passed to URL set. Ensure there is a code, dataset and model URL")
+            loggerInstance.logger.log_info("Invalid URLs passed to URL set. Ensure there is a code, dataset and model URL")
 
     def __str__(self) -> str:
         return (str(self.code) + "\n" + str(self.dataset) + "\n" + str(self.model))
