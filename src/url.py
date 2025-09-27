@@ -43,3 +43,14 @@ class Url:
 
     def __str__(self) -> str:
         return str(self.link + " Category: " + self.category.__str__())
+
+
+# A Url Set consists of a model (required), dataset (optional) and code (optional) URL
+class UrlSet:
+    def __init__(self, model: Url, dataset: Url, code: Url):
+        if (model.category != UrlCategory.MODEL) or (dataset.category != UrlCategory.DATASET) or (code.category != UrlCategory.CODE):
+            print("Invalid URLs passed to URL set. Ensure there is a model, dataset and code URL")
+        else:
+            self.model = model
+            self.datset = dataset
+            self.code = code
