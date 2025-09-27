@@ -54,14 +54,13 @@ def validate_log_file() -> bool:
     """Validate log file path if provided.
     
     Returns:
-        True if log file path is valid or not provided
+        True if log file path is valid
         False if log file path is invalid or cannot be created
     """
     log_file_path = os.getenv("LOG_FILE", "")
     
     if not log_file_path:
-        # No log file provided - logging disabled
-        return True
+        return False
     
     try:
         from pathlib import Path
@@ -70,7 +69,12 @@ def validate_log_file() -> bool:
         log_path = Path(log_file_path)
         log_dir = log_path.parent
         
+        # Don't try to create nested directories that don't exist
         if not log_dir.exists():
+            # Check if parent directory exists - if not, we can't create nested
+            if not log_dir.parent.exists():
+                print(f"Error: Cannot create log directory: {log_dir}", file=sys.stderr)
+                return False
             try:
                 log_dir.mkdir(exist_ok=True)
             except Exception as e:
