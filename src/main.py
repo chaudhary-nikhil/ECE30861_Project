@@ -8,7 +8,7 @@ import requests
 from typing import List, Dict, Any
 from .log.logger import Logger
 
-logger = Logger()
+logger: Logger | None = None # Don't want to initialize the logger without verifying that the log file exists
 
 
 def validate_github_token() -> bool:
@@ -86,7 +86,12 @@ def validate_log_file() -> bool:
             print(f"Error: Log directory is not writable: {log_dir}", file=sys.stderr)
             return False
 
-        # Try to create/append to the log file
+        # The log file must already exist, according to an instructor note on Piazza
+        if not log_path.exists():
+            print(f"Error: Log file does not exist: {log_path}")
+            return False
+
+        # Try to append to the log file
         try:
             with open(log_file_path, "a") as f:
                 pass  # Just test if we can open it
@@ -225,7 +230,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
             if modelResult.details.get("likes", 0) > 0:
                 print(f"     • Likes: {modelResult.details['likes']}")
             if modelResult.details.get("has_model_card"):
-                print(f"     • Has Model Card: ")
+                print("     • Has Model Card: ")
             if modelResult.details.get("pipeline_tag"):
                 print(f"     • Pipeline Tag: {modelResult.details['pipeline_tag']}")
 #
@@ -242,8 +247,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 #                    print(f"     • Language: {result.details['language']}")
 
             # Add to totals
-            total_score += result.score
-            total_max_score += result.max_score
+            total_score += modelResult.score
+            total_max_score += modelResult.max_score
             valid_urls += 1
 
             # Add to NDJSON results
@@ -260,45 +265,45 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
                 'code_quality': 0.075
             }
             net_score = (
-                result.details.get('bus_factor', 0.5) * weights['bus_factor'] +
-                result.details.get('license', 0.5) * weights['license'] +
-                result.details.get('ramp_up_time', 0.5) * weights['ramp_up_time'] +
-                result.details.get('performance_claims', 0.5) * weights['performance_claims'] +
-                sum(result.details.get('size_score', {}).values()) / 4 * weights['size_score'] +
-                result.details.get('dataset_and_code_score', 0.5) * weights['dataset_and_code_score'] +
-                result.details.get('dataset_quality', 0.5) * weights['dataset_quality'] +
-                result.details.get('code_quality', 0.5) * weights['code_quality']
+                modelResult.details.get('bus_factor', 0.5) * weights['bus_factor'] +
+                modelResult.details.get('license', 0.5) * weights['license'] +
+                modelResult.details.get('ramp_up_time', 0.5) * weights['ramp_up_time'] +
+                modelResult.details.get('performance_claims', 0.5) * weights['performance_claims'] +
+                sum(modelResult.details.get('size_score', {}).values()) / 4 * weights['size_score'] +
+                modelResult.details.get('dataset_and_code_score', 0.5) * weights['dataset_and_code_score'] +
+                modelResult.details.get('dataset_quality', 0.5) * weights['dataset_quality'] +
+                modelResult.details.get('code_quality', 0.5) * weights['code_quality']
             )
             end_time = time.perf_counter()
             net_score_latency = max(100, round((end_time - start_time) * 1000) + 100)  # Add base latency
 
             ndjson_entry = {
-                "name": result.details.get("name", "unknown").split('/')[-1],  # Just model name
-                "category": url.category.name,
+                "name": modelResult.details.get("name", "unknown").split('/')[-1],  # Just model name
+                "category": model.category.name,
                 "net_score": round(net_score, 2),
                 "net_score_latency": net_score_latency,
-                "ramp_up_time": round(result.details.get("ramp_up_time", 0.5), 2),
-                "ramp_up_time_latency": result.details.get("ramp_up_time_latency", 30),
-                "bus_factor": round(result.details.get("bus_factor", 0.0), 2),
-                "bus_factor_latency": result.details.get("bus_factor_latency", 20),
-                "performance_claims": round(result.details.get("performance_claims", 0.5), 2),
-                "performance_claims_latency": result.details.get("performance_claims_latency", 30),
-                "license": round(result.details.get("license", 0.5), 2),
-                "license_latency": result.details.get("license_latency", 10),
-                "size_score": {k: round(v, 2) for k, v in result.details.get("size_score", {}).items()},
-                "size_score_latency": result.details.get("size_score_latency", 40),
-                "dataset_and_code_score": round(result.details.get("dataset_and_code_score", 0.5), 2),
-                "dataset_and_code_score_latency": result.details.get("dataset_and_code_score_latency", 15),
-                "dataset_quality": round(result.details.get("dataset_quality", 0.5), 2),
-                "dataset_quality_latency": result.details.get("dataset_quality_latency", 20),
-                "code_quality": round(result.details.get("code_quality", 0.5), 2),
-                "code_quality_latency": result.details.get("code_quality_latency", 20),
+                "ramp_up_time": round(modelResult.details.get("ramp_up_time", 0.5), 2),
+                "ramp_up_time_latency": modelResult.details.get("ramp_up_time_latency", 30),
+                "bus_factor": round(modelResult.details.get("bus_factor", 0.0), 2),
+                "bus_factor_latency": modelResult.details.get("bus_factor_latency", 20),
+                "performance_claims": round(modelResult.details.get("performance_claims", 0.5), 2),
+                "performance_claims_latency": modelResult.details.get("performance_claims_latency", 30),
+                "license": round(modelResult.details.get("license", 0.5), 2),
+                "license_latency": modelResult.details.get("license_latency", 10),
+                "size_score": {k: round(v, 2) for k, v in modelResult.details.get("size_score", {}).items()},
+                "size_score_latency": modelResult.details.get("size_score_latency", 40),
+                "dataset_and_code_score": round(modelResult.details.get("dataset_and_code_score", 0.5), 2),
+                "dataset_and_code_score_latency": modelResult.details.get("dataset_and_code_score_latency", 15),
+                "dataset_quality": round(modelResult.details.get("dataset_quality", 0.5), 2),
+                "dataset_quality_latency": modelResult.details.get("dataset_quality_latency", 20),
+                "code_quality": round(modelResult.details.get("code_quality", 0.5), 2),
+                "code_quality_latency": modelResult.details.get("code_quality_latency", 20),
             }
             ndjson_results.append(ndjson_entry)
         else:
             # Failed to analyze - still add to NDJSON with error
             print(
-                f"    Failed to analyze: {result.details.get('error', 'Unknown error')}"
+                f"    Failed to analyze: {modelResult.details.get('error', 'Unknown error')}"
             )
 
             # Measure net_score calculation latency for failed URLs
@@ -311,8 +316,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
             ndjson_results.append(
                 {
-                    "name": result.details.get("name", "unknown"),
-                    "category": url.category.name,
+                    "name": modelResult.details.get("name", "unknown"),
+                    "category": model.category.name,
                     "net_score": net_score,
                     "net_score_latency": net_score_latency,
                     "ramp_up_time": 0.0,
@@ -323,7 +328,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
                     "performance_claims_latency": 0,
                     "license": 0.0,
                     "license_latency": 0,
-                    "size_score": result.details.get("size_score", {}),
+                    "size_score": modelResult.details.get("size_score", {}),
                     "size_score_latency": 0,
                     "dataset_and_code_score": 0.0,
                     "dataset_and_code_score_latency": 0,
@@ -331,7 +336,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
                     "dataset_quality_latency": 0,
                     "code_quality": 0.0,
                     "code_quality_latency": 0,
-                    "error": result.details.get("error", "Failed to score"),
+                    "error": modelResult.details.get("error", "Failed to score"),
                 }
             )
 
@@ -371,15 +376,19 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
 
 def main() -> int:
-    logger.log_info("Starting Hugging Face CLI...")
 
     # Validate log file path if provided
     if not validate_log_file():
         return 1
 
+    global logger
+    logger = Logger()
+    logger.log_info("Starting Hugging Face CLI...")
+
     # Validate GitHub token if provided
     if not validate_github_token():
         return 1
+
 
     if (len(sys.argv)) != 2:
         print("URL_FILE is a required argument.")
