@@ -140,13 +140,13 @@ def calculate_code_bus_factor(contributor_count: int) -> float:
 
 def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict[str, Any]) -> tuple:
     """Calculate bus factor with latency measurement"""
-    
+
     start_time = time.time()
-    
+
     # Extract contributor count from IntegratedDataFetcher data
     contributors = data.get('contributors', [])
     contributor_count = len(contributors) if contributors else 0
-    
+
      # DEBUG: Print contributor information
     # print(f"DEBUG - URL: {url}")
     # print(f"DEBUG - Category: {category.name}")
@@ -163,10 +163,10 @@ def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict
         score = calculate_code_bus_factor(contributor_count)
     else:
         score = 0.0
-    
+
     end_time = time.time()
     latency_ms = int((end_time - start_time) * 1000)
-    
+
     return score, latency_ms
 
 
@@ -175,33 +175,33 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
     downloads = data.get('downloads', 0)
     likes = data.get('likes', 0)
     has_card = bool(data.get('cardData') or data.get('has_model_card'))
-    
+
     # License (check tags)
     tags = data.get('tags', [])
     license_score = 1.0 if any('license:' in str(t) for t in tags) else 0.0
-    
+
     # Ramp-up time (based on documentation)
     ramp_up = 0.90 if has_card and downloads > 1000000 else 0.85 if has_card else 0.25
-    
+
     # Performance claims (based on popularity + card)
     perf = 0.92 if downloads > 1000000 and has_card else 0.80 if downloads > 100000 else 0.15
-    
+
     # Dataset/code score (based on linked resources in card)
     dataset_code = 1.0 if downloads > 1000000 else 0.0
-    
+
     # Dataset quality
     dataset_qual = 0.95 if downloads > 1000000 else 0.0
-    
+
     # Code quality (based on likes)
     code_qual = 0.93 if likes > 1000 else 0.10 if likes < 10 else 0.0
-    
+
     # Bus factor - check organization
     contributors = data.get('contributors', [])
     model_name = data.get('name', '')
     # Major orgs: google, openai, microsoft, meta, etc.
     major_orgs = ['google', 'openai', 'microsoft', 'meta', 'facebook']
     is_major_org = any(org in model_name.lower() for org in major_orgs)
-    
+
     if is_major_org:
         bus = 0.95
     elif downloads > 100000:
@@ -210,7 +210,7 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
         bus = 0.33
     else:
         bus = 0.3
-    
+
     return {
         'ramp_up_time': ramp_up,
         'ramp_up_time_latency': 45 if downloads > 1000000 else 42 if downloads < 100 else 30,
@@ -286,7 +286,7 @@ def score_dataset(url: str) -> ScoreResult:
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.DATASET)
-    
+
     return ScoreResult(
         url,
         UrlCategory.DATASET,
@@ -361,11 +361,11 @@ def score_model(url: str) -> ScoreResult:
     # Calculate dynamic size_score
     estimated_size = estimate_model_size(model_name, "model")
     size_score = calculate_size_score(estimated_size)
-    
+
     # Fetch contributor data and merge with API data
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
-    
+
     # Calculate all metrics
     metrics = calculate_metrics(data_merged, UrlCategory.MODEL)
 
@@ -451,7 +451,7 @@ def score_code(url: str) -> ScoreResult:
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.CODE)
-    
+
     return ScoreResult(
         url,
         UrlCategory.CODE,
@@ -470,7 +470,7 @@ def score_code(url: str) -> ScoreResult:
     )
 
 
-def score_url(url: str, category: UrlCategory) -> ScoreResult:
+def score_url(url: str, category: UrlCategory) -> ScoreResult | None:
     """Score a URL based on its category."""
     if category == UrlCategory.DATASET:
         return score_dataset(url)
@@ -479,12 +479,13 @@ def score_url(url: str, category: UrlCategory) -> ScoreResult:
     elif category == UrlCategory.CODE:
         return score_code(url)
     else:
-        estimated_size = estimate_model_size("unknown", "invalid")
-        size_score = calculate_size_score(estimated_size)
-        return ScoreResult(
-            url,
-            UrlCategory.INVALID,
-            0.0,
-            10.0,
-            {"error": "Invalid category", "name": "unknown", "size_score": size_score},
-        )
+        return None
+#        estimated_size = estimate_model_size("unknown", "invalid")
+#        size_score = calculate_size_score(estimated_size)
+#        return ScoreResult(
+#            url,
+#            UrlCategory.INVALID,
+#            0.0,
+#            10.0,
+#            {"error": "Invalid category", "name": "unknown", "size_score": size_score},
+#        )

@@ -1,4 +1,4 @@
-from .url import Url, UrlCategory
+from .url import Url, UrlCategory, UrlSet
 from .scorer import score_url, ScoreResult
 import sys
 import json
@@ -13,18 +13,18 @@ logger = Logger()
 
 def validate_github_token() -> bool:
     """Validate GitHub token if provided.
-    
+
     Returns:
         True if token is valid or not provided (will use rate-limited access)
         False if token is provided but invalid
     """
     github_token = os.getenv("GITHUB_TOKEN", "")
-    
+
     if not github_token:
         # No token provided - will use rate-limited access
         logger.log_info("No GITHUB_TOKEN provided, using rate-limited API access")
         return True
-    
+
     # Validate the token by making a test request
     try:
         response = requests.get(
@@ -32,7 +32,7 @@ def validate_github_token() -> bool:
             headers={"Authorization": f"token {github_token}"},
             timeout=5
         )
-        
+
         if response.status_code == 200:
             logger.log_info("GitHub token validated successfully")
             return True
@@ -52,23 +52,23 @@ def validate_github_token() -> bool:
 
 def validate_log_file() -> bool:
     """Validate log file path if provided.
-    
+
     Returns:
         True if log file path is valid
         False if log file path is invalid or cannot be created
     """
     log_file_path = os.getenv("LOG_FILE", "")
-    
+
     if not log_file_path:
         return False
-    
+
     try:
         from pathlib import Path
-        
+
         # Get the directory path
         log_path = Path(log_file_path)
         log_dir = log_path.parent
-        
+
         # Don't try to create nested directories that don't exist
         if not log_dir.exists():
             # Check if parent directory exists - if not, we can't create nested
@@ -81,11 +81,11 @@ def validate_log_file() -> bool:
                 print(f"Error: Cannot create log directory: {log_dir}", file=sys.stderr)
                 print(f"Reason: {e}", file=sys.stderr)
                 return False
-        
+
         if not os.access(log_dir, os.W_OK):
             print(f"Error: Log directory is not writable: {log_dir}", file=sys.stderr)
             return False
-        
+
         # Try to create/append to the log file
         try:
             with open(log_file_path, "a") as f:
@@ -95,42 +95,48 @@ def validate_log_file() -> bool:
             print(f"Error: Cannot write to log file: {log_file_path}", file=sys.stderr)
             print(f"Reason: {e}", file=sys.stderr)
             return False
-            
+
     except Exception as e:
         print(f"Error: Invalid log file path: {log_file_path}", file=sys.stderr)
         print(f"Reason: {e}", file=sys.stderr)
         return False
 
 
-def parseUrlFile(urlFile: str) -> list[Url]:
+def parseUrlFile(urlFile: str) -> list[UrlSet]:
     """Parse URL file in CSV format: code_url,dataset_url,model_url
-    
+
     Each line can contain up to 3 URLs separated by commas.
     Empty fields are represented by empty strings between commas.
     Example: ,,model_url means only model URL is provided.
     """
     f = open(urlFile, "r")
-    url_list: list[Url] = list()
+    urlset_list: list[UrlSet] = list()
 
     lines: list[str] = f.read().strip().split("\n")
     for line in lines:
         if line.strip() == "":  # Skip empty lines
             continue
-        
+
         # Split by comma to get individual URLs
         urls_in_line = line.split(",")
-        
-        # Process each URL in the line
-        for url_string in urls_in_line:
-            url_string = url_string.strip()
-            if url_string:  # Only add non-empty URLs
-                url_list.append(Url(url_string))
-    
+
+        # Code and dataset URL can be empty
+        code_url: Url | None = Url(urls_in_line[0]) if len(line[0]) > 0 else None
+        dataset_url: Url | None = Url(urls_in_line[1]) if len(line[1]) > 0 else None
+        model_url : Url = Url(urls_in_line[2])
+        urlset_list.append(UrlSet(code_url, dataset_url, model_url))
+
+#        # Process each URL in the line
+#        for url_string in urls_in_line:
+#            url_string = url_string.strip()
+#            if url_string:  # Only add non-empty URLs
+#                url_list.append(Url(url_string))
+
     f.close()
-    return url_list
+    return urlset_list
 
 
-def calculate_scores(urls: list[Url]) -> None:
+def calculate_scores(urlsets: list[UrlSet]) -> None:
     """Calculate and display trustworthiness scores for URLs."""
 
     print("\n" + "=" * 80)
@@ -142,13 +148,12 @@ def calculate_scores(urls: list[Url]) -> None:
     valid_urls = 0
     ndjson_results: List[Dict[str, Any]] = []
 
-    for url in urls:
-        # Only process MODEL URLs
-        if url.category != UrlCategory.MODEL:
-            continue
-            
-        if url.category == UrlCategory.INVALID:
-            print(f"\n Invalid: {url.link}")
+    for urlset in urlsets:
+        code:Url | None = urlset.code
+        dataset: Url | None = urlset.dataset
+        model:Url = urlset.model
+        if model.category == UrlCategory.INVALID:
+            print(f"\n Invalid: {model.link}")
             print("   Status: Invalid URL - Not a dataset, model, or code URL")
             # Add to NDJSON even for invalid URLs
             # Measure net_score calculation latency for invalid URLs (should be 0)
@@ -186,47 +191,55 @@ def calculate_scores(urls: list[Url]) -> None:
 
             continue
 
-        print(f"\n Analyzing: {url.link}")
-        print(f"   Category: {url.category.name}")
+        print(f"\n Analyzing: {model.link}")
+        print(f"   Category: {model.category.name}")
 
         # Calculate score
-        result: ScoreResult = score_url(url.link, url.category)
+        modelResultOptional: ScoreResult | None= score_url(model.link, model.category)
+        if modelResultOptional is None:
+            raise Exception("Model can't be scored")
+        else:
+            modelResult: ScoreResult = modelResultOptional
+
+        datasetResult: ScoreResult | None = score_url(dataset.link, dataset.category)
+        codeResult: ScoreResult | None = score_url(code.link, code.category)
+
 
         # Display results
-        if result.score > 0:
-            print(f"   Score: {result}")
-            print(f"   Details:")
+        if modelResult.score > 0:
+            print(f"   Score: {modelResult}")
+            print("   Details:")
 
             # Show key details based on category
-            if url.category == UrlCategory.DATASET:
-                if result.details.get("downloads", 0) > 0:
-                    print(f"     • Downloads: {result.details['downloads']:,}")
-                if result.details.get("likes", 0) > 0:
-                    print(f"     • Likes: {result.details['likes']}")
-                if result.details.get("has_description"):
-                    print(f"     • Has Description: ")
-
-            elif url.category == UrlCategory.MODEL:
-                if result.details.get("downloads", 0) > 0:
-                    print(f"     • Downloads: {result.details['downloads']:,}")
-                if result.details.get("likes", 0) > 0:
-                    print(f"     • Likes: {result.details['likes']}")
-                if result.details.get("has_model_card"):
-                    print(f"     • Has Model Card: ")
-                if result.details.get("pipeline_tag"):
-                    print(f"     • Pipeline Tag: {result.details['pipeline_tag']}")
-
-            elif url.category == UrlCategory.CODE:
-                if result.details.get("stars", 0) > 0:
-                    print(f"     • Stars: {result.details['stars']:,}")
-                if result.details.get("forks", 0) > 0:
-                    print(f"     • Forks: {result.details['forks']:,}")
-                if result.details.get("has_description"):
-                    print(f"     • Has Description: ")
-                if result.details.get("has_license"):
-                    print(f"     • Has License: ")
-                if result.details.get("language"):
-                    print(f"     • Language: {result.details['language']}")
+  #          if url.category == UrlCategory.DATASET:
+  #              if result.details.get("downloads", 0) > 0:
+  #                  print(f"     • Downloads: {result.details['downloads']:,}")
+  #              if result.details.get("likes", 0) > 0:
+  #                  print(f"     • Likes: {result.details['likes']}")
+  #              if result.details.get("has_description"):
+  #                  print(f"     • Has Description: ")
+  #
+  #         elif url.category == UrlCategory.MODEL:
+            if modelResult.details.get("downloads", 0) > 0:
+                print(f"     • Downloads: {modelResult.details['downloads']:,}")
+            if modelResult.details.get("likes", 0) > 0:
+                print(f"     • Likes: {modelResult.details['likes']}")
+            if modelResult.details.get("has_model_card"):
+                print(f"     • Has Model Card: ")
+            if modelResult.details.get("pipeline_tag"):
+                print(f"     • Pipeline Tag: {modelResult.details['pipeline_tag']}")
+#
+#            elif url.category == UrlCategory.CODE:
+#                if result.details.get("stars", 0) > 0:
+#                    print(f"     • Stars: {result.details['stars']:,}")
+#                if result.details.get("forks", 0) > 0:
+#                    print(f"     • Forks: {result.details['forks']:,}")
+#                if result.details.get("has_description"):
+#                    print(f"     • Has Description: ")
+#                if result.details.get("has_license"):
+#                    print(f"     • Has License: ")
+#                if result.details.get("language"):
+#                    print(f"     • Language: {result.details['language']}")
 
             # Add to totals
             total_score += result.score
@@ -287,7 +300,7 @@ def calculate_scores(urls: list[Url]) -> None:
             print(
                 f"    Failed to analyze: {result.details.get('error', 'Unknown error')}"
             )
-            
+
             # Measure net_score calculation latency for failed URLs
             start_time = time.perf_counter()
             net_score = 0.0
@@ -295,7 +308,7 @@ def calculate_scores(urls: list[Url]) -> None:
             net_score_latency = round(
                 (end_time - start_time) * 1000
             )  # Convert to milliseconds and round
-            
+
             ndjson_results.append(
                 {
                     "name": result.details.get("name", "unknown"),
@@ -373,7 +386,7 @@ def main() -> int:
         return 1
 
     urlFile = sys.argv[1]
-    urls: list[Url] = parseUrlFile(urlFile)
+    urls: list[UrlSet] = parseUrlFile(urlFile)
     for url in urls:
         print(url)
 
