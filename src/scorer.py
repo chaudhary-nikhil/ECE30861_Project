@@ -170,6 +170,24 @@ def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict
     return score, latency_ms
 
 
+def calculate_stub_metrics() -> dict[str, Any]:
+    """Return stub values for unimplemented metrics"""
+    return {
+        'ramp_up_time': 0.5,
+        'ramp_up_time_latency': 0,
+        'performance_claims': 0.5,
+        'performance_claims_latency': 0,
+        'license': 0.5,
+        'license_latency': 0,
+        'size_score_latency': 0,
+        'dataset_and_code_score': 0.5,
+        'dataset_and_code_score_latency': 0,
+        'dataset_quality': 0.5,
+        'dataset_quality_latency': 0,
+        'code_quality': 0.5,
+        'code_quality_latency': 0
+    }
+
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
     # Extract dataset name
@@ -226,6 +244,7 @@ def score_dataset(url: str) -> ScoreResult:
     size_score = calculate_size_score(estimated_size)
     contributor_data = _data_fetcher.fetch_data(url)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.DATASET, contributor_data)
+    stub_metrics = calculate_stub_metrics()
     
     return ScoreResult(
         url,
@@ -239,7 +258,8 @@ def score_dataset(url: str) -> ScoreResult:
             "has_description": has_description,
             "size_score": size_score,
             'bus_factor': bus_factor_score,
-            'bus_factor_latency': bus_factor_latency
+            'bus_factor_latency': bus_factor_latency,
+            **stub_metrics
         },
     )
 
@@ -304,6 +324,7 @@ def score_model(url: str) -> ScoreResult:
     size_score = calculate_size_score(estimated_size)
     contributor_data = _data_fetcher.fetch_data(url)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.MODEL, contributor_data)
+    stub_metrics = calculate_stub_metrics()
 
     return ScoreResult(
         url,
@@ -318,7 +339,8 @@ def score_model(url: str) -> ScoreResult:
             "pipeline_tag": pipeline_tag,
             "size_score": size_score,
             'bus_factor': bus_factor_score,
-            'bus_factor_latency': bus_factor_latency
+            'bus_factor_latency': bus_factor_latency,
+            **stub_metrics
         },
     )
 
@@ -387,6 +409,7 @@ def score_code(url: str) -> ScoreResult:
     size_score = calculate_size_score(estimated_size)
     contributor_data = _data_fetcher.fetch_data(url)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, contributor_data)
+    stub_metrics = calculate_stub_metrics()
     
     return ScoreResult(
         url,
@@ -402,7 +425,8 @@ def score_code(url: str) -> ScoreResult:
             "language": language,
             "size_score": size_score,
             'bus_factor': bus_factor_score,
-            'bus_factor_latency': bus_factor_latency
+            'bus_factor_latency': bus_factor_latency,
+            **stub_metrics
         },
     )
 
