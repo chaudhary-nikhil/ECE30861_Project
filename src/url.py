@@ -50,7 +50,6 @@ class UrlSet:
     def __init__(self, code: Url | None, dataset: Url | None, model: Url):
         if (model.category != UrlCategory.MODEL) or (dataset is not None and dataset.category != UrlCategory.DATASET) or (code is not None and code.category != UrlCategory.CODE):
             print("Invalid URLs passed to URL set. Ensure there is a code, dataset and model URL")
-            raise Exception("Invalid URL Set")
         else:
             self.code = code
             self.dataset = dataset
