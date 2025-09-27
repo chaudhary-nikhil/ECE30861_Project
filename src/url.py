@@ -48,6 +48,7 @@ class Url:
 # A Url Set consists of a code (optional), dataset(optional) and model (required) URL
 class UrlSet:
     def __init__(self, code: Url | None, dataset: Url | None, model: Url):
+    updateUrlSet
         self.code = code
         self.dataset = dataset
         self.model = model
