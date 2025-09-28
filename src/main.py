@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 from .log.logger import Logger
 from .log import loggerInstance
 
+
 def validate_github_token() -> bool:
     """Validate GitHub token if provided.
 
