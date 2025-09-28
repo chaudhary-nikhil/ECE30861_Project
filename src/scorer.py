@@ -8,7 +8,19 @@ import requests
 import re
 from .url import UrlCategory
 import time
+import os
+import tempfile
+import shutil
+from pathlib import Path
 from .integrated_data_fetcher import IntegratedDataFetcher
+
+# Try to import GitPython, fallback to subprocess if not available
+try:
+    import git
+    GIT_PYTHON_AVAILABLE = True
+except ImportError:
+    import subprocess
+    GIT_PYTHON_AVAILABLE = False
 
 
 
@@ -41,6 +53,23 @@ def make_request(url: str) -> Optional[dict]:
         return None
 
 
+def calculate_size_score_with_timing(model_size_mb: float) -> tuple[dict[str, float], int]:
+    """
+    Calculate size_score with latency measurement.
+
+    Args:
+        model_size_mb: Model size in megabytes
+
+    Returns:
+        tuple of (size_score_dict, latency_ms)
+    """
+    start_time = time.perf_counter()
+    size_score = calculate_size_score(model_size_mb)
+    end_time = time.perf_counter()
+    latency_ms = int((end_time - start_time) * 1000)
+    return size_score, latency_ms
+
+
 def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     """
     Calculate size_score based on model size using piecewise linear mapping.
@@ -51,15 +80,15 @@ def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     Returns:
         dictionary mapping hardware types to compatibility scores [0,1]
     """
-    # Hardware capacity thresholds (in MB)
+    # Hardware capacity thresholds (in MB) - Updated for 2024 hardware
     thresholds = {
         "raspberry_pi": {
             "min": 0,
-            "max": 200,
-        },  # 0-200MB full score, taper to 0 at 1GB+
-        "jetson_nano": {"min": 0, "max": 500},  # 0-500MB full score, taper to 0 at 4GB+
-        "desktop_pc": {"min": 0, "max": 5000},  # 0-5GB full score, taper to 0 at 20GB+
-        "aws_server": {"min": 0, "max": 50000},  # Near 1 unless extreme (100GB+)
+            "max": 1500,
+        },  # 0-1.5GB full score, taper to 0 at 4GB+ (Pi 4 with 4-8GB RAM)
+        "jetson_nano": {"min": 0, "max": 2500},  # 0-2.5GB full score, taper to 0 at 6GB+ (4GB RAM + GPU acceleration)
+        "desktop_pc": {"min": 0, "max": 10000},  # 0-10GB full score, taper to 0 at 40GB+ (modern desktops with 16-32GB RAM)
+        "aws_server": {"min": 0, "max": 100000},  # 0-100GB full score, taper to 0 at 500GB+ (high-memory instances)
     }
 
     size_score = {}
@@ -83,23 +112,228 @@ def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     return size_score
 
 
+def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict[str, Any]:
+    """
+    Download and analyze model repository to determine actual model size.
+    Uses Hugging Face Hub for reliable model file access.
+    
+    Args:
+        model_name: Name of the model (e.g., "google-bert/bert-base-uncased")
+        model_type: Type of model ("model", "dataset", "code")
+        
+    Returns:
+        Dictionary with analysis results including size in MB
+    """
+    temp_dir = None
+    try:
+        # Create temporary directory
+        temp_dir = tempfile.mkdtemp(prefix="model_analysis_")
+        
+        print(f"Downloading model files for: {model_name}")
+        
+        # Use Hugging Face Hub to download only essential model files
+        try:
+            from huggingface_hub import snapshot_download
+            # Download only the essential model files for size calculation
+            downloaded_path = snapshot_download(
+                repo_id=model_name,
+                cache_dir=temp_dir,
+                local_dir=temp_dir,
+                local_dir_use_symlinks=False,
+                allow_patterns=[
+                    "pytorch_model.bin",    # Primary PyTorch model
+                    "model.safetensors",    # Primary SafeTensors model
+                    "tf_model.h5",          # Primary TensorFlow model
+                    "*.bin",                # Other PyTorch models
+                    "*.safetensors",         # Other SafeTensors models
+                    "*.h5",                 # Other TensorFlow models
+                ]
+            )
+            print(f"Essential model files downloaded to: {downloaded_path}")
+        except ImportError:
+            print("huggingface_hub not available, falling back to Git clone")
+            # Fallback to Git clone if huggingface_hub is not available
+            if "/" in model_name:
+                owner, repo = model_name.split("/", 1)
+                repo_url = f"https://huggingface.co/{owner}/{repo}.git"
+            else:
+                repo_url = f"https://huggingface.co/{model_name}.git"
+            
+            print(f"Cloning repository: {repo_url}")
+            
+            # Clone repository
+            if GIT_PYTHON_AVAILABLE:
+                repo = git.Repo.clone_from(repo_url, temp_dir)
+            else:
+                result = subprocess.run(['git', 'clone', '--depth', '1', repo_url, temp_dir], 
+                                     capture_output=True, text=True, timeout=120)
+                if result.returncode != 0:
+                    raise Exception(f"Git clone failed: {result.stderr}")
+        except Exception as e:
+            print(f"Download failed: {e}")
+            raise e
+        
+        # Analyze model files
+        analysis = _analyze_model_files(temp_dir, model_name, model_type)
+        
+        return analysis
+        
+    except Exception as e:
+        print(f"Repository analysis failed: {e}")
+        return {
+            'error': f"Failed to analyze repository: {str(e)}",
+            'size_mb': 500,  # Fallback size
+            'files_analyzed': [],
+            'total_files': 0
+        }
+    finally:
+        # Clean up temporary directory
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
+
+def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Dict[str, Any]:
+    """
+    Analyze model files in the cloned repository.
+    
+    Args:
+        repo_path: Path to the cloned repository
+        model_name: Name of the model
+        model_type: Type of model
+        
+    Returns:
+        Dictionary with file analysis results
+    """
+    model_files = []
+    total_size_bytes = 0
+    
+    # Common model file patterns
+    model_file_patterns = [
+        '*.bin',           # PyTorch models
+        '*.safetensors',   # SafeTensors format
+        '*.h5',           # TensorFlow models
+        '*.ckpt',         # Checkpoint files
+        '*.pth',          # PyTorch state dict
+        '*.pt',           # PyTorch models
+        '*.onnx',         # ONNX models
+        '*.tflite',       # TensorFlow Lite
+        '*.pb',           # TensorFlow protobuf
+        '*.pkl',          # Pickle files
+        '*.joblib',       # Joblib files
+    ]
+    
+    # Tokenizer and config files (smaller but relevant)
+    config_file_patterns = [
+        '*.json',         # Config files
+        '*.txt',          # Text files
+        '*.yaml',         # YAML configs
+        '*.yml',          # YAML configs
+    ]
+    
+    try:
+        repo_path_obj = Path(repo_path)
+        
+        # Find model files
+        for pattern in model_file_patterns:
+            for file_path in repo_path_obj.rglob(pattern):
+                if file_path.is_file():
+                    file_size = file_path.stat().st_size
+                    model_files.append({
+                        'name': file_path.name,
+                        'path': str(file_path.relative_to(repo_path_obj)),
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024)
+                    })
+                    total_size_bytes += file_size
+        
+        # Find config files (for completeness)
+        config_files = []
+        for pattern in config_file_patterns:
+            for file_path in repo_path_obj.rglob(pattern):
+                if file_path.is_file():
+                    file_size = file_path.stat().st_size
+                    config_files.append({
+                        'name': file_path.name,
+                        'path': str(file_path.relative_to(repo_path_obj)),
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024)
+                    })
+                    total_size_bytes += file_size
+        
+        # Calculate total size in MB
+        total_size_mb = total_size_bytes / (1024 * 1024)
+        
+        return {
+            'size_mb': round(total_size_mb, 2),
+            'size_bytes': total_size_bytes,
+            'model_files': model_files,
+            'config_files': config_files,
+            'total_files': len(model_files) + len(config_files),
+            'files_analyzed': [f['name'] for f in model_files + config_files]
+        }
+        
+    except Exception as e:
+        return {
+            'error': f"File analysis failed: {str(e)}",
+            'size_mb': 500,  # Fallback size
+            'files_analyzed': [],
+            'total_files': 0
+        }
+
+
+def estimate_model_size_with_timing(model_name: str, model_type: str = "model") -> tuple[float, int]:
+    """
+    Estimate model size with timing measurement.
+    
+    Args:
+        model_name: Name of the model (e.g., "google-bert/bert-base-uncased")
+        model_type: Type of model ("model", "dataset", "code")
+        
+    Returns:
+        tuple of (size_mb, latency_ms)
+    """
+    start_time = time.perf_counter()
+    
+    if not model_name or model_name == "unknown":
+        end_time = time.perf_counter()
+        latency_ms = int((end_time - start_time) * 1000)
+        return 500, latency_ms  # Default for unknown models
+    
+    # Analyze the actual repository
+    analysis = analyze_model_repository(model_name, model_type)
+    
+    end_time = time.perf_counter()
+    latency_ms = int((end_time - start_time) * 1000)
+    
+    if 'error' in analysis:
+        print(f"Warning: {analysis['error']}")
+        return 500, latency_ms  # Fallback size
+    
+    return analysis['size_mb'], latency_ms
+
+
 def estimate_model_size(model_name: str, model_type: str = "model") -> float:
     """
-    Estimate model size with a conservative default.
-
+    Estimate model size by analyzing the actual repository.
+    
     Args:
-        model_name: Name of the model (e.g., "google/gemma-3-270m")
+        model_name: Name of the model (e.g., "google-bert/bert-base-uncased")
         model_type: Type of model ("model", "dataset", "code")
-
+        
     Returns:
         Estimated model size in MB
     """
     if not model_name or model_name == "unknown":
-        # Default size for unknown models
-        return 500  # Default medium size
-
-    # Use conservative default
-    return 1000  # Conservative default
+        return 500  # Default for unknown models
+    
+    # Analyze the actual repository
+    analysis = analyze_model_repository(model_name, model_type)
+    
+    if 'error' in analysis:
+        print(f"Warning: {analysis['error']}")
+        return 500  # Fallback size
+    
+    return analysis['size_mb']
 
 _data_fetcher = IntegratedDataFetcher()
 MAJOR_ORGS = ['google', 'openai', 'microsoft', 'meta', 'facebook', 'anthropic', 'nvidia', 'tensorflow']
@@ -209,7 +443,6 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
         'performance_claims_latency': 35 if downloads > 100000 else 28,
         'license': license_score,
         'license_latency': 10 if license_score > 0 else 18,
-        'size_score_latency': 50 if downloads > 1000000 else 40 if downloads < 100 else 15,
         'dataset_and_code_score': dataset_code,
         'dataset_and_code_score_latency': 15 if dataset_code > 0 else 5 if downloads < 100 else 40,
         'dataset_quality': dataset_qual,
@@ -223,14 +456,14 @@ def score_dataset(url: str) -> ScoreResult:
     # Extract dataset name
     match = re.search(r"https://huggingface\.co/datasets/([\w-]+(?:/[\w-]+)?)", url)
     if not match:
-        estimated_size = estimate_model_size("unknown", "dataset")
+        estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "dataset")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.DATASET,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     dataset_name = match.group(1)
@@ -238,14 +471,14 @@ def score_dataset(url: str) -> ScoreResult:
     data = make_request(api_url)
 
     if not data:
-        estimated_size = estimate_model_size(dataset_name, "dataset")
+        estimated_size, size_score_latency = estimate_model_size_with_timing(dataset_name, "dataset")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.DATASET,
             0.0,
             10.0,
-            {"name": dataset_name, "fallback": True, "size_score": size_score},
+            {"name": dataset_name, "fallback": True, "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     # Simple scoring based on key metrics
@@ -269,8 +502,8 @@ def score_dataset(url: str) -> ScoreResult:
     if has_description:
         score += 2.0
 
-    # Calculate dynamic size_score
-    estimated_size = estimate_model_size(dataset_name, "dataset")
+    # Calculate dynamic size_score with timing
+    estimated_size, size_score_latency = estimate_model_size_with_timing(dataset_name, "dataset")
     size_score = calculate_size_score(estimated_size)
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
@@ -288,6 +521,7 @@ def score_dataset(url: str) -> ScoreResult:
             "likes": likes,
             "has_description": has_description,
             "size_score": size_score,
+            "size_score_latency": size_score_latency,
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
             **metrics
@@ -300,14 +534,14 @@ def score_model(url: str) -> ScoreResult:
     # Extract model name
     match = re.search(r"https://huggingface\.co/(?:models/)?([\w-]+(?:/[\w-]+)?)", url)
     if not match:
-        estimated_size = estimate_model_size("unknown", "model")
+        estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "model")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.MODEL,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     model_name = match.group(1)
@@ -315,14 +549,14 @@ def score_model(url: str) -> ScoreResult:
     data = make_request(api_url)
 
     if not data:
-        estimated_size = estimate_model_size(model_name, "model")
+        estimated_size, size_score_latency = estimate_model_size_with_timing(model_name, "model")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.MODEL,
             2.0,
             10.0,
-            {"name": model_name, "fallback": True, "size_score": size_score},
+            {"name": model_name, "fallback": True, "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     # Simple scoring based on key metrics
@@ -350,8 +584,8 @@ def score_model(url: str) -> ScoreResult:
     if pipeline_tag:
         score += 1.0
 
-    # Calculate dynamic size_score
-    estimated_size = estimate_model_size(model_name, "model")
+    # Calculate dynamic size_score with timing
+    estimated_size, size_score_latency = estimate_model_size_with_timing(model_name, "model")
     size_score = calculate_size_score(estimated_size)
 
     # Fetch contributor data and merge with API data
@@ -376,6 +610,7 @@ def score_model(url: str) -> ScoreResult:
             "size_score": size_score,
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
+            "size_score_latency": size_score_latency,
             **metrics
         },
     )
@@ -386,14 +621,14 @@ def score_code(url: str) -> ScoreResult:
     # Extract repo info
     match = re.search(r"https://github\.com/([\w-]+)/([\w-]+)", url)
     if not match:
-        estimated_size = estimate_model_size("unknown", "code")
+        estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "code")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.CODE,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     owner, repo = match.groups()
@@ -401,14 +636,14 @@ def score_code(url: str) -> ScoreResult:
     data = make_request(api_url)
 
     if not data:
-        estimated_size = estimate_model_size(f"{owner}/{repo}", "code")
+        estimated_size, size_score_latency = estimate_model_size_with_timing(f"{owner}/{repo}", "code")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
             UrlCategory.CODE,
             2.0,
             10.0,
-            {"name": f"{owner}/{repo}", "fallback": True, "size_score": size_score},
+            {"name": f"{owner}/{repo}", "fallback": True, "size_score": size_score, "size_score_latency": size_score_latency},
         )
 
     # Simple scoring based on key metrics
@@ -440,8 +675,8 @@ def score_code(url: str) -> ScoreResult:
     if language:
         score += 1.0
 
-    # Calculate dynamic size_score
-    estimated_size = estimate_model_size(f"{owner}/{repo}", "code")
+    # Calculate dynamic size_score with timing
+    estimated_size, size_score_latency = estimate_model_size_with_timing(f"{owner}/{repo}", "code")
     size_score = calculate_size_score(estimated_size)
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
@@ -463,6 +698,7 @@ def score_code(url: str) -> ScoreResult:
             "size_score": size_score,
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
+            "size_score_latency": size_score_latency,
             **metrics
         },
     )
