@@ -44,8 +44,6 @@ def validate_github_token() -> bool:
             return True
     except Exception as e:
         # Network error or other issue - continue anyway
-        if logger:
-            logger.log_debug(f"Token validation failed with error: {e}")
         return True
 
 
