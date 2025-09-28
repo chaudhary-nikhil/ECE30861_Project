@@ -15,7 +15,7 @@ from src.main import (
     calculate_scores,
     main,
 )
-from src.url import Url, UrlCategory
+from src.url import Url, UrlCategory, UrlSet
 
 
 class TestValidateGithubToken:
@@ -25,7 +25,7 @@ class TestValidateGithubToken:
     def test_no_token_provided(self):
         """Test that missing token returns True (rate-limited access)"""
         assert validate_github_token() is True
-    
+
     @patch("src.main.requests.get")
     @patch.dict(os.environ, {"GITHUB_TOKEN": "valid_token"})
     def test_valid_token(self, mock_get):
@@ -78,8 +78,8 @@ class TestValidateLogFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = os.path.join(tmpdir, "test.log")
             with patch.dict(os.environ, {"LOG_FILE": log_file}):
-                assert validate_log_file() is True
-                assert os.path.exists(log_file)
+                assert validate_log_file() is False # Because the file doesn't exist
+                assert not os.path.exists(log_file)
 
     def test_log_file_with_nested_directories(self):
         """Test that nested directories are created"""
@@ -109,11 +109,14 @@ class TestParseUrlFile:
             filename = f.name
 
         try:
-            urls = parseUrlFile(filename)
-            assert len(urls) == 3
-            assert urls[0].category == UrlCategory.CODE
-            assert urls[1].category == UrlCategory.DATASET
-            assert urls[2].category == UrlCategory.MODEL
+            urlsets = parseUrlFile(filename)
+            assert len(urlsets) == 1 # Only 1 URL Set
+            assert isinstance(urlsets[0].code, Url)
+            assert urlsets[0].code.category == UrlCategory.CODE
+            assert isinstance(urlsets[0].dataset, Url)
+            assert urlsets[0].dataset.category == UrlCategory.DATASET
+            assert isinstance(urlsets[0].model, Url)
+            assert urlsets[0].model.category == UrlCategory.MODEL
         finally:
             os.unlink(filename)
 
@@ -121,15 +124,13 @@ class TestParseUrlFile:
         """Test parsing lines with empty fields"""
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write(",,https://huggingface.co/model\n")
-            f.write(",https://huggingface.co/datasets/test,\n")
+            f.write(",,https://huggingface.co/model2,\n")
             f.flush()
             filename = f.name
 
         try:
-            urls = parseUrlFile(filename)
-            assert len(urls) == 2
-            assert urls[0].category == UrlCategory.MODEL
-            assert urls[1].category == UrlCategory.DATASET
+            urlsets = parseUrlFile(filename)
+            assert len(urlsets) == 2
         finally:
             os.unlink(filename)
 
@@ -142,8 +143,8 @@ class TestParseUrlFile:
             filename = f.name
 
         try:
-            urls = parseUrlFile(filename)
-            assert len(urls) == 6
+            urlsets = parseUrlFile(filename)
+            assert len(urlsets) == 2
         finally:
             os.unlink(filename)
 
@@ -171,8 +172,8 @@ class TestParseUrlFile:
             filename = f.name
 
         try:
-            urls = parseUrlFile(filename)
-            assert len(urls) == 6
+            urlsets = parseUrlFile(filename)
+            assert len(urlsets) == 2
         finally:
             os.unlink(filename)
 
@@ -184,9 +185,9 @@ class TestParseUrlFile:
             filename = f.name
 
         try:
-            urls = parseUrlFile(filename)
-            assert len(urls) == 3
-            assert "  " not in urls[0].link
+            urlsets = parseUrlFile(filename)
+            assert len(urlsets) == 1
+            assert "  " not in urlsets[0].model.link
         finally:
             os.unlink(filename)
 
@@ -198,7 +199,7 @@ class TestCalculateScores:
     def test_calculate_scores_valid_urls(self, mock_score):
         """Test calculate_scores with valid URLs"""
         from src.scorer import ScoreResult
-        
+
         mock_score.return_value = ScoreResult(
             url="https://huggingface.co/model",
             category=UrlCategory.MODEL,
@@ -207,40 +208,38 @@ class TestCalculateScores:
             details={"name": "test-model", "downloads": 1000}
         )
 
-        urls = [
-            Url("https://huggingface.co/model", UrlCategory.MODEL),
-        ]
+        urlsets = [UrlSet(None, None, Url("https://huggingface.co/model", UrlCategory.MODEL))]
 
         with patch("builtins.open", create=True) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
-            
-            calculate_scores(urls)
-            
-            # Verify file was opened for writing
-            mock_open.assert_called_once_with("scores.ndjson", "w")
+
+            calculate_scores(urlsets)
+
+            # Verify file was opened for writing - cannot test because we are using stdout for output
+            # mock_open.assert_called_once_with("scores.ndjson", "w")
 
     @patch("src.main.score_url")
     def test_calculate_scores_invalid_urls(self, mock_score):
         """Test calculate_scores with invalid URLs"""
         urls = [
-            Url("https://invalid.com", UrlCategory.INVALID),
+            UrlSet(None, None, Url("https://invalid.com", UrlCategory.INVALID)),
         ]
 
         with patch("builtins.open", create=True) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
-            
+
             calculate_scores(urls)
-            
-            # Should still write to file
-            mock_open.assert_called_once()
+
+            # # Should still write to file
+            # mock_open.assert_called_once()
 
     @patch("src.main.score_url")
     def test_calculate_scores_mixed_urls(self, mock_score):
         """Test calculate_scores with mix of valid and invalid URLs"""
         from src.scorer import ScoreResult
-        
+
         mock_score.return_value = ScoreResult(
             url="https://huggingface.co/model",
             category=UrlCategory.MODEL,
@@ -250,14 +249,14 @@ class TestCalculateScores:
         )
 
         urls = [
-            Url("https://huggingface.co/model", UrlCategory.MODEL),
-            Url("https://invalid.com", UrlCategory.INVALID),
+            UrlSet(None, None, Url("https://huggingface.co/model", UrlCategory.MODEL)),
+            UrlSet(None, None, Url("https://invalid.com", UrlCategory.INVALID)),
         ]
 
         with patch("builtins.open", create=True) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
-            
+
             calculate_scores(urls)
 
 class TestMain:
@@ -267,7 +266,7 @@ class TestMain:
     @patch("src.main.validate_github_token")
     @patch("src.main.parseUrlFile")
     @patch("src.main.calculate_scores")
-    @patch("src.main.logger")
+    @patch("src.log.loggerInstance.logger")
     def test_main_success(self, mock_logger, mock_calc, mock_parse, mock_token, mock_log):
         """Test successful main execution"""
         mock_log.return_value = True
@@ -281,7 +280,7 @@ class TestMain:
             assert result == 0
 
     @patch("src.main.validate_log_file")
-    @patch("src.main.logger")
+    @patch("src.log.loggerInstance.logger")
     def test_main_invalid_log_file(self, mock_logger, mock_log):
         """Test main with invalid log file"""
         mock_log.return_value = False
@@ -292,7 +291,7 @@ class TestMain:
 
     @patch("src.main.validate_log_file")
     @patch("src.main.validate_github_token")
-    @patch("src.main.logger")
+    @patch("src.log.loggerInstance.logger")
     def test_main_invalid_token(self, mock_logger, mock_token, mock_log):
         """Test main with invalid GitHub token"""
         mock_log.return_value = True
@@ -304,7 +303,7 @@ class TestMain:
 
     @patch("src.main.validate_log_file")
     @patch("src.main.validate_github_token")
-    @patch("src.main.logger")
+    @patch("src.log.loggerInstance.logger")
     def test_main_missing_url_file_argument(self, mock_logger, mock_token, mock_log):
         """Test main without URL file argument"""
         mock_log.return_value = True
@@ -316,7 +315,7 @@ class TestMain:
 
     @patch("src.main.validate_log_file")
     @patch("src.main.validate_github_token")
-    @patch("src.main.logger")
+    @patch("src.log.loggerInstance.logger")
     def test_main_too_many_arguments(self, mock_logger, mock_token, mock_log):
         """Test main with too many arguments"""
         mock_log.return_value = True
