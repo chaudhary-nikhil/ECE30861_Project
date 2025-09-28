@@ -15,6 +15,7 @@ from pathlib import Path
 from .integrated_data_fetcher import IntegratedDataFetcher
 from .log import loggerInstance
 from .dataset_quality import calculate_dataset_quality_with_timing
+from .ramp_up_time import calculate_ramp_up_time_with_timing
 import subprocess
 import tempfile
 import os
@@ -536,9 +537,11 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
     end_time = time.perf_counter()
     license_latency = max(10, round((end_time - start_time) * 1000) + 10)  # Add base latency
 
-    # Ramp-up time (based on documentation)
-    ramp_up = 0.90 if has_card and downloads > 1000000 else 0.85 if has_card else 0.25
+    # Ramp-up time - enhanced calculation with timing
+    ramp_up, ramp_up_latency = calculate_ramp_up_time_with_timing(data, model_name)
 
+    # Performance claims - enhanced calculation with timing
+    perf, perf_latency = calculate_performance_claims_with_timing(data, model_name)
     # Performance claims - enhanced calculation with timing
     perf, perf_latency = calculate_performance_claims_with_timing(data, model_name)
 
@@ -554,7 +557,7 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
 
     return {
         'ramp_up_time': ramp_up,
-        'ramp_up_time_latency': 45 if downloads > 1000000 else 42 if downloads < 100 else 30,
+        'ramp_up_time_latency': ramp_up_latency,
         'performance_claims': perf,
         'performance_claims_latency': perf_latency,
         'license': license_score,
@@ -1234,3 +1237,5 @@ def calculate_performance_claims_with_timing(data: Dict[str, Any], model_name: s
     latency_ms = int((end_time - start_time) * 1000)
     
     return score, latency_ms
+
+

@@ -22,6 +22,7 @@ from src.scorer import (
     calculate_performance_claims_with_timing,
     UrlCategory,
 )
+from src.ramp_up_time import calculate_ramp_up_time_with_timing
 from src.url import UrlCategory
 
 
@@ -544,5 +545,162 @@ class TestPerformanceClaims:
         """Test performance claims with invalid data"""
         data = None
         score, latency = calculate_performance_claims_with_timing(data, "invalid-model")
+        assert score == 0.0
+        assert latency >= 0
+
+
+class TestRampUpTime:
+    """Tests for calculate_ramp_up_time_with_timing function"""
+    
+    def test_ramp_up_time_no_data(self):
+        """Test ramp-up time with no data"""
+        data = {}
+        score, latency = calculate_ramp_up_time_with_timing(data, "")
+        assert score == 0.0
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_model_card(self):
+        """Test ramp-up time with model card"""
+        data = {
+            'cardData': {'some': 'data'},
+            'downloads': 1000,
+            'likes': 50
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "test-model")
+        assert score >= 0.18  # Should get score for model card (0.3 * 0.6)
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_readme_file(self):
+        """Test ramp-up time with README file"""
+        data = {
+            'cardData': {'content': 'Model description'},
+            'files': [{'rfilename': 'README.md'}],
+            'downloads': 10000,
+            'likes': 100
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "readme-model")
+        assert score >= 0.24  # Should get score for model card + README file
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_requirements_file(self):
+        """Test ramp-up time with requirements file"""
+        data = {
+            'cardData': {'content': 'Model description'},
+            'files': [{'rfilename': 'requirements.txt'}],
+            'downloads': 20000,
+            'likes': 150
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "requirements-model")
+        assert score >= 0.3  # Should get score for model card + requirements
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_example_script(self):
+        """Test ramp-up time with example script"""
+        data = {
+            'cardData': {'content': 'Model description'},
+            'files': [{'rfilename': 'example.py'}],
+            'downloads': 30000,
+            'likes': 200
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "example-model")
+        assert score >= 0.36  # Should get score for model card + example script
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_config_files(self):
+        """Test ramp-up time with config files"""
+        data = {
+            'cardData': {'content': 'Model description'},
+            'files': [{'rfilename': 'config.json'}],
+            'downloads': 40000,
+            'likes': 300
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "config-model")
+        assert score >= 0.3  # Should get score for model card + config
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_documentation_sections(self):
+        """Test ramp-up time with good documentation sections"""
+        data = {
+            'cardData': {
+                'content': 'This model is for text classification. Usage: import the model. Installation: pip install transformers. Example: see below. Quickstart guide available.'
+            },
+            'downloads': 50000,
+            'likes': 400
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "doc-model")
+        assert score >= 0.3  # Should get score for model card + documentation sections
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_code_examples(self):
+        """Test ramp-up time with code examples"""
+        data = {
+            'cardData': {
+                'content': '```python\nimport transformers\nfrom transformers import AutoModel\nmodel = AutoModel.from_pretrained("model-name")\n```'
+            },
+            'downloads': 60000,
+            'likes': 500
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "code-model")
+        assert score >= 0.27  # Should get score for model card + code examples
+        assert latency >= 0
+    
+    def test_ramp_up_time_with_setup_instructions(self):
+        """Test ramp-up time with setup instructions"""
+        data = {
+            'cardData': {
+                'content': 'Installation: pip install transformers torch. Setup: Download the model. Install dependencies.'
+            },
+            'downloads': 70000,
+            'likes': 600
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "setup-model")
+        assert score >= 0.3  # Should get score for model card + setup instructions
+        assert latency >= 0
+    
+    def test_ramp_up_time_comprehensive_evidence(self):
+        """Test ramp-up time with comprehensive evidence"""
+        data = {
+            'cardData': {
+                'content': 'This model is for text classification. Usage: import transformers. Installation: pip install transformers. Example: ```python\nmodel = AutoModel.from_pretrained("model")\n```'
+            },
+            'files': [
+                {'rfilename': 'README.md'},
+                {'rfilename': 'requirements.txt'},
+                {'rfilename': 'example.py'},
+                {'rfilename': 'config.json'}
+            ],
+            'downloads': 1000000,
+            'likes': 2000
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "comprehensive-model")
+        assert score >= 0.8  # Should get high score for comprehensive evidence
+        assert latency >= 0
+    
+    def test_ramp_up_time_high_popularity(self):
+        """Test ramp-up time with high popularity"""
+        data = {
+            'cardData': {'content': 'Basic model'},
+            'downloads': 2000000,  # High downloads
+            'likes': 5000  # High likes
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "popular-model")
+        assert score >= 0.2  # Should get score for high popularity
+        assert latency >= 0
+    
+    def test_ramp_up_time_score_bounds(self):
+        """Test that ramp-up time score is between 0 and 1"""
+        data = {
+            'cardData': {'content': 'Test'},
+            'downloads': 1000,
+            'likes': 10
+        }
+        score, latency = calculate_ramp_up_time_with_timing(data, "test-model")
+        assert 0.0 <= score <= 1.0
+        assert latency >= 0
+    
+    def test_ramp_up_time_error_handling(self):
+        """Test ramp-up time with invalid data"""
+        data = None
+        score, latency = calculate_ramp_up_time_with_timing(data, "invalid-model")
         assert score == 0.0
         assert latency >= 0
