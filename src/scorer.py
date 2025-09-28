@@ -858,7 +858,7 @@ def score_code(url: str) -> ScoreResult:
     )
 
 
-def score_url(url: str, category: UrlCategory, code_url: Optional[str] = None) -> ScoreResult | None:
+def score_url(url: str, category: UrlCategory, code_url: Optional[str] = None) -> Optional[ScoreResult]:
     """Score a URL based on its category."""
     if category == UrlCategory.DATASET:
         return score_dataset(url)
