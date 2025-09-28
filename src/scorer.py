@@ -9,6 +9,7 @@ import re
 from .url import UrlCategory
 import time
 from .integrated_data_fetcher import IntegratedDataFetcher
+from .log import loggerInstance
 import subprocess
 import tempfile
 import os
@@ -643,7 +644,7 @@ def find_code_repo_via_genai(model_name: str) -> Optional[str]:
                     # Return the first valid URL found
                     return urls[0]
         else:
-            print(f"Purdue GenAI Studio API returned status {response.status_code}: {response.text}")
+            loggerInstance.logger.log_info(f"Purdue GenAI Studio API returned status {response.status_code}: {response.text}")
         
         # Fallback: try to extract GitHub repo from model name
         if '/' in model_name:
@@ -659,7 +660,7 @@ def find_code_repo_via_genai(model_name: str) -> Optional[str]:
         
     except Exception as e:
         # Log the error but don't fail completely
-        print(f"GenAI API error: {e}")
+        loggerInstance.logger.log_info(f"GenAI API error: {e}")
         
         # Fallback: try to extract GitHub repo from model name
         try:
