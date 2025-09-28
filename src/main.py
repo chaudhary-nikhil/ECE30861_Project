@@ -14,6 +14,18 @@ os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 
+def format_floats_to_2dp(obj):
+    """Recursively format all float values to 2 decimal places"""
+    if isinstance(obj, dict):
+        return {k: format_floats_to_2dp(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [format_floats_to_2dp(item) for item in obj]
+    elif isinstance(obj, float):
+        return f"{obj:.2f}"
+    else:
+        return obj
+
+
 def validate_github_token() -> bool:
     """Validate GitHub token if provided.
 
@@ -373,7 +385,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
     #output_filename = "scores.ndjson"
     #with open(output_filename, "w") as f:
     for ndjson_entry in ndjson_results:
-        sys.stdout.write(json.dumps(ndjson_entry).replace(" ", "") + "\n")
+        formatted_entry = format_floats_to_2dp(ndjson_entry)
+        sys.stdout.write(json.dumps(formatted_entry).replace(" ", "") + "\n")
 
     # loggerInstance.logger.log_info(f"\n Results written to: stdout")
 
