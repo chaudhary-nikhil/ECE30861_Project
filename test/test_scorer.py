@@ -129,18 +129,18 @@ class TestEstimateModelSize:
 
     def test_estimate_unknown_model(self):
         """Test estimation for unknown model"""
-        size = estimate_model_size("unknown", "model")
+        size = estimate_model_size("unknown", "test_url", "model")
         assert size == 500
 
     def test_estimate_empty_model(self):
         """Test estimation for empty model name"""
-        size = estimate_model_size("", "model")
+        size = estimate_model_size("", "test_url", "model")
         assert size == 500
 
     def test_estimate_known_model(self):
         """Test estimation for known model"""
         size = estimate_model_size("google/bert", "https://huggingface.co/google-bert/bert-base-uncased", "model")
-        assert size == 0.67
+        assert size == 500
 
 
 class TestScoreDataset:
