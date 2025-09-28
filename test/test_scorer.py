@@ -128,17 +128,17 @@ class TestEstimateModelSize:
 
     def test_estimate_unknown_model(self):
         """Test estimation for unknown model"""
-        size = estimate_model_size("unknown", "model")
+        size = estimate_model_size("unknown", "test_url", "model")
         assert size == 500
 
     def test_estimate_empty_model(self):
         """Test estimation for empty model name"""
-        size = estimate_model_size("", "model")
+        size = estimate_model_size("", "test_url", "model")
         assert size == 500
 
     def test_estimate_known_model(self):
         """Test estimation for known model"""
-        size = estimate_model_size("google/bert", "model")
+        size = estimate_model_size("google/bert", "https://huggingface.co/google-bert/bert-base-uncased", "model")
         assert size == 1000
 
 
@@ -156,7 +156,7 @@ class TestScoreDataset:
     def test_score_dataset_no_data(self, mock_request):
         """Test scoring dataset with no API data"""
         mock_request.return_value = None
-        
+
         result = score_dataset("https://huggingface.co/datasets/squad")
         assert result.category == UrlCategory.DATASET
         assert result.details["name"] == "squad"
@@ -169,7 +169,7 @@ class TestScoreDataset:
             "likes": 100,
             "description": "Test dataset"
         }
-        
+
         result = score_dataset("https://huggingface.co/datasets/squad")
         assert result.score > 0
         assert result.details["downloads"] == 50000
@@ -183,7 +183,7 @@ class TestScoreDataset:
             "likes": 60,
             "description": "Test"
         }
-        
+
         result = score_dataset("https://huggingface.co/datasets/test")
         assert result.score >= 7.0
 
@@ -195,7 +195,7 @@ class TestScoreDataset:
             "likes": 1,
             "description": ""
         }
-        
+
         result = score_dataset("https://huggingface.co/datasets/test")
         assert result.score >= 2.0
         assert result.score <= 4.0
@@ -215,7 +215,7 @@ class TestScoreModel:
     def test_score_model_no_data(self, mock_request):
         """Test scoring model with no API data"""
         mock_request.return_value = None
-        
+
         result = score_model("https://huggingface.co/google/bert")
         assert result.category == UrlCategory.MODEL
         assert result.score == 2.0
@@ -230,7 +230,7 @@ class TestScoreModel:
             "cardData": {"key": "value"},
             "pipeline_tag": "text-classification"
         }
-        
+
         result = score_model("https://huggingface.co/google/bert")
         assert result.score > 5.0
         assert result.details["downloads"] == 200000
@@ -247,7 +247,7 @@ class TestScoreModel:
             "cardData": {},
             "pipeline_tag": "text-generation"
         }
-        
+
         result = score_model("https://huggingface.co/test/model")
         assert result.score >= 8.0
 
@@ -266,7 +266,7 @@ class TestScoreCode:
     def test_score_code_no_data(self, mock_request):
         """Test scoring code with no API data"""
         mock_request.return_value = None
-        
+
         result = score_code("https://github.com/user/repo")
         assert result.category == UrlCategory.CODE
         assert result.score == 2.0
@@ -282,7 +282,7 @@ class TestScoreCode:
             "license": {"name": "MIT"},
             "language": "Python"
         }
-        
+
         result = score_code("https://github.com/user/repo")
         assert result.score > 5.0
         assert result.details["stars"] == 5000
@@ -301,7 +301,7 @@ class TestScoreCode:
             "license": {"name": "Apache-2.0"},
             "language": "JavaScript"
         }
-        
+
         result = score_code("https://github.com/popular/repo")
         assert result.score >= 8.0
 
@@ -315,7 +315,7 @@ class TestScoreCode:
             "license": None,
             "language": None
         }
-        
+
         result = score_code("https://github.com/small/repo")
         assert result.score >= 2.0
         assert result.score <= 4.0
@@ -335,7 +335,7 @@ class TestScoreUrl:
             details={}
         )
         mock_score.return_value = mock_result
-        
+
         result = score_url("https://huggingface.co/datasets/test", UrlCategory.DATASET)
         assert result.category == UrlCategory.DATASET
         mock_score.assert_called_once()
@@ -351,7 +351,7 @@ class TestScoreUrl:
             details={}
         )
         mock_score.return_value = mock_result
-        
+
         result = score_url("https://huggingface.co/test", UrlCategory.MODEL)
         assert result.category == UrlCategory.MODEL
         mock_score.assert_called_once()
@@ -367,7 +367,7 @@ class TestScoreUrl:
             details={}
         )
         mock_score.return_value = mock_result
-        
+
         result = score_url("https://github.com/test/repo", UrlCategory.CODE)
         assert result.category == UrlCategory.CODE
         mock_score.assert_called_once()
@@ -391,7 +391,7 @@ class TestBusFactor:
     def test_model_bus_factor_major_org(self):
         contributor_count = 1
         score = calculate_model_bus_factor(contributor_count, "microsoft/awesome-model")
-        assert score == 0.95  
+        assert score == 0.95
 
     def test_dataset_bus_factor(self):
         contributor_count = 3
@@ -406,7 +406,7 @@ class TestBusFactor:
         score = calculate_code_bus_factor(3, "openai/repo")
         assert score == 0.95
 
-    
+
     def test_organization_detection(self):
         """Test the organization detection function"""
         assert is_major_organization("google/model") == True
