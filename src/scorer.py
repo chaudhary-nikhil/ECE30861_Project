@@ -2,7 +2,7 @@
 Simplified scoring framework for datasets, models, and code.
 """
 
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Optional
 from dataclasses import dataclass
 import requests
 import re
@@ -767,7 +767,7 @@ def score_code(url: str) -> ScoreResult:
     )
 
 
-def score_url(url: str, category: UrlCategory, code_url: Optional[str] = None) -> ScoreResult | None:
+def score_url(url: str, category: UrlCategory, code_url: Optional[str] = None) -> Optional[ScoreResult]:
     """Score a URL based on its category."""
     if category == UrlCategory.DATASET:
         return score_dataset(url)

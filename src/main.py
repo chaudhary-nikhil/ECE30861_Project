@@ -5,7 +5,7 @@ import json
 import time
 import os
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .log.logger import Logger
 from .log import loggerInstance
 
@@ -139,8 +139,8 @@ def parseUrlFile(urlFile: str) -> list[UrlSet]:
         urls_in_line = line.split(",")
 
         # Code and dataset URL can be empty
-        code_url: Url | None = Url(urls_in_line[0].strip()) if len(urls_in_line[0]) > 0 else None
-        dataset_url: Url | None = Url(urls_in_line[1].strip()) if len(urls_in_line[1]) > 0 else None
+        code_url: Optional[Url] = Url(urls_in_line[0].strip()) if len(urls_in_line[0]) > 0 else None
+        dataset_url: Optional[Url] = Url(urls_in_line[1].strip()) if len(urls_in_line[1]) > 0 else None
         model_url : Url = Url(urls_in_line[2].strip())
         urlset_list.append(UrlSet(code_url, dataset_url, model_url))
 
@@ -167,8 +167,8 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
     ndjson_results: List[Dict[str, Any]] = []
 
     for urlset in urlsets:
-        code:Url | None = urlset.code
-        dataset: Url | None = urlset.dataset
+        code:Optional[Url] = urlset.code
+        dataset: Optional[Url] = urlset.dataset
         model:Url = urlset.model
         if model.category == UrlCategory.INVALID:
             # loggerInstance.logger.log_info(f"\n Invalid: {model.link}")
@@ -214,14 +214,14 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
         # Calculate score
         code_url = code.link if code else None
-        modelResultOptional: ScoreResult | None= score_url(model.link, model.category, code_url)
+        modelResultOptional: Optional[ScoreResult] = score_url(model.link, model.category, code_url)
         if modelResultOptional is None:
             raise Exception("Model can't be scored")
         else:
             modelResult: ScoreResult = modelResultOptional
 
-        datasetResult: ScoreResult | None = score_url(dataset.link, dataset.category) if dataset else None
-        codeResult: ScoreResult | None = score_url(code.link, code.category) if code else None
+        datasetResult: Optional[ScoreResult] = score_url(dataset.link, dataset.category) if dataset else None
+        codeResult: Optional[ScoreResult] = score_url(code.link, code.category) if code else None
 
 
         # Display results
