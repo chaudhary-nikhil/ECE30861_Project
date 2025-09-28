@@ -14,10 +14,11 @@ import shutil
 from pathlib import Path
 from .integrated_data_fetcher import IntegratedDataFetcher
 from .log import loggerInstance
+from .dataset_quality import calculate_dataset_quality_with_timing
+from .ramp_up_time import calculate_ramp_up_time_with_timing
+from .performance_claims import calculate_performance_claims_with_timing
+from .net_score import calculate_net_score_with_timing
 import subprocess
-import tempfile
-import os
-import shutil
 import json
 
 # A map of Hugging Face's valid license keywords (pulled from here: https://huggingface.co/docs/hub/en/repositories-licenses)
@@ -229,18 +230,17 @@ def analyze_model_repository(model_name: str, model_url: str, model_type: str = 
             # Create temporary directory
             temp_dir = tempfile.mkdtemp(prefix="model_analysis_")
 
-            # print(f"Downloading model files for: {model_name}")
-
-            # Use Hugging Face Hub to download only essential model files
             try:
                 from huggingface_hub import snapshot_download
-
+                # Get HF token from environment
+                hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
                 # Download only the essential model files for size calculation
                 downloaded_path = snapshot_download(
                     repo_id=model_name,
                     cache_dir=temp_dir,
                     local_dir=temp_dir,
                     local_dir_use_symlinks=False,
+                    token=hf_token,
                     allow_patterns=[
                         "pytorch_model.bin",    # Primary PyTorch model
                         "model.safetensors",    # Primary SafeTensors model
@@ -248,12 +248,11 @@ def analyze_model_repository(model_name: str, model_url: str, model_type: str = 
                         "*.bin",                # Other PyTorch models
                         "*.safetensors",         # Other SafeTensors models
                         "*.h5",                 # Other TensorFlow models
-                    ],
-                    tqdm_class=None  # Disable progress bars
+                    ]
                 )
-                # print(f"Essential model files downloaded to: {downloaded_path}")
+                print(f"Essential model files downloaded to: {downloaded_path}")
             except ImportError:
-                # print("huggingface_hub not available, falling back to Git clone")
+                print("huggingface_hub not available, falling back to Git clone")
                 # Fallback to Git clone if huggingface_hub is not available
                 # if "/" in model_name:
                 #     owner, repo = model_name.split("/", 1)
@@ -261,7 +260,7 @@ def analyze_model_repository(model_name: str, model_url: str, model_type: str = 
                 # else:
                 #     repo_url = f"https://huggingface.co/{model_name}.git"
 
-                # print(f"Cloning repository: {repo_url}")
+                print(f"Cloning repository: {repo_url}")
 
                 # Clone repository
                 if GIT_PYTHON_AVAILABLE:
@@ -271,9 +270,6 @@ def analyze_model_repository(model_name: str, model_url: str, model_type: str = 
                                          capture_output=True, text=True, timeout=120)
                     if result.returncode != 0:
                         raise Exception(f"Git clone failed: {result.stderr}")
-            except Exception as e:
-                # print(f"Download failed: {e}")
-                raise e
 
             # Analyze model files
             analysis = _analyze_model_files(temp_dir, model_name, model_type)
@@ -445,7 +441,11 @@ def estimate_model_size(model_name: str, model_url: str, model_type: str = "mode
 
     return analysis['size_mb']
 
-_data_fetcher = IntegratedDataFetcher()
+# Initialize data fetcher with API tokens from environment variables
+import os
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+github_token = os.getenv("GITHUB_TOKEN")
+_data_fetcher = IntegratedDataFetcher(hf_api_token=hf_token, github_token=github_token)
 MAJOR_ORGS = ['google', 'openai', 'microsoft', 'meta', 'facebook', 'anthropic', 'nvidia', 'tensorflow']
 def is_major_organization(name: str) -> bool:
     """Check if a name contains a major organization"""
@@ -536,17 +536,17 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
     end_time = time.perf_counter()
     license_latency = max(10, round((end_time - start_time) * 1000) + 10)  # Add base latency
 
-    # Ramp-up time (based on documentation)
-    ramp_up = 0.90 if has_card and downloads > 1000000 else 0.85 if has_card else 0.25
+    # Ramp-up time - enhanced calculation with timing
+    ramp_up, ramp_up_latency = calculate_ramp_up_time_with_timing(data, model_name)
 
-    # Performance claims (based on popularity + card)
-    perf = 0.92 if downloads > 1000000 and has_card else 0.80 if downloads > 100000 else 0.15
+    # Performance claims - enhanced calculation with timing
+    perf, perf_latency = calculate_performance_claims_with_timing(data, model_name)
 
     # Dataset/code score (based on linked resources in card)
     dataset_code = 1.0 if downloads > 1000000 else 0.0
 
-    # Dataset quality
-    dataset_qual = 0.95 if downloads > 1000000 else 0.0
+    # Dataset quality - enhanced calculation with timing
+    dataset_qual, dataset_qual_latency = calculate_dataset_quality_with_timing(data, downloads, likes)
 
     # Code quality using Flake8 analysis
     if code_url is not None:
@@ -555,37 +555,43 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
         code_qual = 0
         code_qual_latency = 0
 
+    # Net score will be calculated separately with complete metrics including bus_factor and size_score
 
     return {
         'ramp_up_time': ramp_up,
-        'ramp_up_time_latency': 45 if downloads > 1000000 else 42 if downloads < 100 else 30,
+        'ramp_up_time_latency': ramp_up_latency,
         'performance_claims': perf,
-        'performance_claims_latency': 35 if downloads > 100000 else 28,
+        'performance_claims_latency': perf_latency,
         'license': license_score,
         'license_latency': license_latency,
         'size_score_latency': 50 if downloads > 1000000 else 40 if downloads < 100 else 15,
         'dataset_and_code_score': dataset_code,
         'dataset_and_code_score_latency': 15 if dataset_code > 0 else 5 if downloads < 100 else 40,
         'dataset_quality': dataset_qual,
-        'dataset_quality_latency': 20 if dataset_qual > 0 else 0,
+        'dataset_quality_latency': dataset_qual_latency,
         'code_quality': code_qual,
         'code_quality_latency': code_qual_latency,
     }
 
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+
     # Extract dataset name
     match = re.search(r"https://huggingface\.co/datasets/([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size = 1000  # Default 1GB for datasets
         size_score_latency = 10  # Fast since we're not downloading
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.DATASET,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     dataset_name = match.group(1)
@@ -635,6 +641,19 @@ def score_dataset(url: str) -> ScoreResult:
     metrics = calculate_metrics(data_merged, UrlCategory.DATASET, None, dataset_name)
 
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.DATASET, data_merged)
+
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+
     return ScoreResult(
         url,
         UrlCategory.DATASET,
@@ -649,6 +668,8 @@ def score_dataset(url: str) -> ScoreResult:
             "size_score_latency": size_score_latency,
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
@@ -656,17 +677,22 @@ def score_dataset(url: str) -> ScoreResult:
 
 def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     """Score a Hugging Face model."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+
     # Extract model name
     match = re.search(r"https://huggingface\.co/(?:models/)?([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", url, "model")
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.MODEL,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     model_name = match.group(1)
@@ -725,6 +751,18 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     metrics = calculate_metrics(data_merged, UrlCategory.MODEL, code_url, model_name)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.MODEL, data_merged)
 
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+
     return ScoreResult(
         url,
         UrlCategory.MODEL,
@@ -740,6 +778,8 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
@@ -747,17 +787,22 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
 
 def score_code(url: str) -> ScoreResult:
     """Score a GitHub repository."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+
     # Extract repo info
     match = re.search(r"https://github\.com/([\w-]+)/([\w-]+)", url)
     if not match:
         estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "code")
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.CODE,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     owner, repo = match.groups()
@@ -811,8 +856,20 @@ def score_code(url: str) -> ScoreResult:
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.CODE)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, data_merged)
-    return ScoreResult(  # ← Add this line
 
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+
+    return ScoreResult(
         url,
         UrlCategory.CODE,
         min(score, 10.0),
@@ -828,6 +885,8 @@ def score_code(url: str) -> ScoreResult:
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
