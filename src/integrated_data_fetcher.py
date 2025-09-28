@@ -77,7 +77,8 @@ class IntegratedDataFetcher:
         if not model_id:
             return {"error": "Could not extract model ID", "category": "MODEL"}
 
-        loggerInstance.logger.log_info(f"Fetching MODEL data for: {model_id}")
+        if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+            loggerInstance.logger.log_info(f"Fetching MODEL data for: {model_id}")
 
         # Get basic model info
         model_info = self._get_hf_model_info(model_id)
@@ -115,7 +116,8 @@ class IntegratedDataFetcher:
         if not dataset_id:
             return {"error": "Could not extract dataset ID", "category": "DATASET"}
 
-        loggerInstance.logger.log_info(f"Fetching DATASET data for: {dataset_id}")
+        if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+            loggerInstance.logger.log_info(f"Fetching DATASET data for: {dataset_id}")
 
         # Get basic dataset info
         dataset_info = self._get_hf_dataset_info(dataset_id)
@@ -152,7 +154,8 @@ class IntegratedDataFetcher:
             return {"error": "Could not extract GitHub repo info", "category": "CODE"}
 
         owner, repo = repo_info
-        loggerInstance.logger.log_info(f"Fetching CODE data for: {owner}/{repo}")
+        if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+            loggerInstance.logger.log_info(f"Fetching CODE data for: {owner}/{repo}")
 
         # Get basic repo info
         repo_data = self._get_github_repo_info(owner, repo)
@@ -204,7 +207,8 @@ class IntegratedDataFetcher:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            loggerInstance.logger.log_info(f"Error fetching model info: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"Error fetching model info: {e}")
             return {}
 
     def _get_hf_model_files(self, model_id: str) -> Dict[str, Any]:
@@ -225,7 +229,8 @@ class IntegratedDataFetcher:
                     }
             return files_dict
         except Exception as e:
-            loggerInstance.logger.log_info(f"Error fetching model files: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"Error fetching model files: {e}")
             return {}
 
     def _get_hf_readme(self, model_id: str) -> str:
@@ -245,7 +250,8 @@ class IntegratedDataFetcher:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            loggerInstance.logger.log_info(f"Error fetching dataset info: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"Error fetching dataset info: {e}")
             return {}
 
     def _get_hf_dataset_files(self, dataset_id: str) -> Dict[str, Any]:
@@ -265,7 +271,8 @@ class IntegratedDataFetcher:
                     }
             return files_dict
         except Exception as e:
-            loggerInstance.logger.log_info(f"Error fetching dataset files: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"Error fetching dataset files: {e}")
             return {}
 
     def _get_hf_dataset_readme(self, dataset_id: str) -> str:
@@ -292,7 +299,8 @@ class IntegratedDataFetcher:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            loggerInstance.logger.log_info(f"Error fetching GitHub repo info: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"Error fetching GitHub repo info: {e}")
             return {}
 
     def _get_github_readme(self, owner: str, repo: str) -> str:
@@ -349,7 +357,8 @@ class IntegratedDataFetcher:
                 memory = size_info.get("num_bytes_memory", 0)
                 rows = size_info.get("num_rows", 0)
                 total_bytes = original or parquet
-                loggerInstance.logger.log_info("[dataset_size] using PRIMARY: dataset_viewer API")
+                if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                    loggerInstance.logger.log_info("[dataset_size] using PRIMARY: dataset_viewer API")
                 return {
                     "total_bytes": total_bytes,
                     "total_gb": total_bytes / (1024**3) if total_bytes > 0 else 0,
@@ -360,13 +369,15 @@ class IntegratedDataFetcher:
                     "api_method": "dataset_viewer",
                 }
             else:
-                loggerInstance.logger.log_info(
-                    f"[dataset_size] PRIMARY failed with status {response.status_code}; trying FALLBACK: huggingface_hub"
-                )
+                if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                    loggerInstance.logger.log_info(
+                        f"[dataset_size] PRIMARY failed with status {response.status_code}; trying FALLBACK: huggingface_hub"
+                    )
         except Exception as e:
-            loggerInstance.logger.log_info(
-                f"[dataset_size] PRIMARY error ({e}); trying FALLBACK: huggingface_hub"
-            )
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(
+                    f"[dataset_size] PRIMARY error ({e}); trying FALLBACK: huggingface_hub"
+                )
 
         try:
             from huggingface_hub import HfApi
@@ -378,7 +389,8 @@ class IntegratedDataFetcher:
             for sibling in ds_info.siblings:
                 total_size_bytes += sibling.size or 0
                 file_count += 1
-            loggerInstance.logger.log_info("[dataset_size] using FALLBACK: huggingface_hub")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info("[dataset_size] using FALLBACK: huggingface_hub")
             return {
                 "total_bytes": total_size_bytes,
                 "total_gb": total_size_bytes / (1024**3) if total_size_bytes > 0 else 0,
@@ -389,7 +401,8 @@ class IntegratedDataFetcher:
                 "api_method": "huggingface_hub",
             }
         except Exception as e:
-            loggerInstance.logger.log_info(f"[dataset_size] FALLBACK error: {e}")
+            if hasattr(loggerInstance, 'logger') and loggerInstance.logger:
+                loggerInstance.logger.log_info(f"[dataset_size] FALLBACK error: {e}")
             return {
                 "error": f"Dataset size could not be determined: {str(e)}",
                 "total_bytes": 0,
