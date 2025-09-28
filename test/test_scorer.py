@@ -19,7 +19,7 @@ from src.scorer import (
     calculate_code_bus_factor,
     calculate_bus_factor_with_timing,
     is_major_organization,
-
+    calculate_performance_claims_with_timing,
     UrlCategory,
 )
 from src.url import UrlCategory
@@ -417,3 +417,132 @@ class TestBusFactor:
     def test_model_bus_factor_multiple_contributors(self):
         score = calculate_model_bus_factor(5, "individual/project")
         assert score == 1.0
+
+
+class TestPerformanceClaims:
+    """Tests for calculate_performance_claims_with_timing function"""
+    
+    def test_performance_claims_no_data(self):
+        """Test performance claims with no data"""
+        data = {}
+        score, latency = calculate_performance_claims_with_timing(data, "")
+        assert score == 0.0
+        assert latency >= 0
+    
+    def test_performance_claims_with_model_card(self):
+        """Test performance claims with model card"""
+        data = {
+            'cardData': {'some': 'data'},
+            'downloads': 1000,
+            'likes': 50
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "test-model")
+        assert score >= 0.1  # Should get some score for having model card
+        assert latency >= 0
+    
+    def test_performance_claims_with_benchmark_keywords(self):
+        """Test performance claims with benchmark keywords in card"""
+        data = {
+            'cardData': {
+                'content': 'This model achieves 95% accuracy on GLUE benchmark and shows state-of-the-art performance'
+            },
+            'downloads': 10000,
+            'likes': 100
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "benchmark-model")
+        assert score > 0.3  # Should get significant score for benchmark keywords
+        assert latency >= 0
+    
+    def test_performance_claims_with_benchmark_datasets(self):
+        """Test performance claims with specific benchmark datasets"""
+        data = {
+            'cardData': {
+                'content': 'Results on SQuAD, SuperGLUE, and MMLU datasets show strong performance'
+            },
+            'downloads': 50000,
+            'likes': 200
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "dataset-model")
+        assert score > 0.2  # Should get score for benchmark datasets
+        assert latency >= 0
+    
+    def test_performance_claims_with_numerical_results(self):
+        """Test performance claims with numerical results"""
+        data = {
+            'cardData': {
+                'content': 'Accuracy: 92.5%, F1 Score: 0.89, BLEU: 45.2'
+            },
+            'downloads': 20000,
+            'likes': 150
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "numerical-model")
+        assert score > 0.15  # Should get score for numerical results
+        assert latency >= 0
+    
+    def test_performance_claims_with_performance_tags(self):
+        """Test performance claims with performance-related tags"""
+        data = {
+            'cardData': {'content': 'Model description'},
+            'tags': ['benchmark', 'evaluation', 'sota'],
+            'downloads': 30000,
+            'likes': 300
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "tagged-model")
+        assert score > 0.1  # Should get score for performance tags
+        assert latency >= 0
+    
+    def test_performance_claims_with_paper_evidence(self):
+        """Test performance claims with paper citations"""
+        data = {
+            'cardData': {
+                'content': 'See our paper on arXiv:1234.5678 for detailed evaluation results'
+            },
+            'downloads': 15000,
+            'likes': 100
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "paper-model")
+        assert score > 0.1  # Should get score for paper evidence
+        assert latency >= 0
+    
+    def test_performance_claims_high_popularity(self):
+        """Test performance claims with high popularity"""
+        data = {
+            'cardData': {'content': 'Basic model'},
+            'downloads': 2000000,  # High downloads
+            'likes': 5000  # High likes
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "popular-model")
+        assert score > 0.15  # Should get score for high popularity
+        assert latency >= 0
+    
+    def test_performance_claims_comprehensive_evidence(self):
+        """Test performance claims with comprehensive evidence"""
+        data = {
+            'cardData': {
+                'content': 'This model achieves 95% accuracy on GLUE benchmark, 89% F1 on SQuAD, and shows state-of-the-art performance. See our paper on arXiv:1234.5678 for details.'
+            },
+            'tags': ['benchmark', 'sota', 'evaluation'],
+            'downloads': 1000000,
+            'likes': 2000
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "comprehensive-model")
+        assert score > 0.5  # Should get high score for comprehensive evidence
+        assert latency >= 0
+    
+    def test_performance_claims_score_bounds(self):
+        """Test that performance claims score is between 0 and 1"""
+        data = {
+            'cardData': {'content': 'Test'},
+            'downloads': 1000,
+            'likes': 10
+        }
+        score, latency = calculate_performance_claims_with_timing(data, "test-model")
+        assert 0.0 <= score <= 1.0
+        assert latency >= 0
+    
+    def test_performance_claims_error_handling(self):
+        """Test performance claims with invalid data"""
+        data = None
+        score, latency = calculate_performance_claims_with_timing(data, "invalid-model")
+        assert score == 0.0
+        assert latency >= 0
