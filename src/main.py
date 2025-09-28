@@ -22,7 +22,8 @@ def validate_github_token() -> bool:
 
     if not github_token:
         # No token provided - will use rate-limited access
-        logger.log_info("No GITHUB_TOKEN provided, using rate-limited API access")
+        if logger:
+            logger.log_info("No GITHUB_TOKEN provided, using rate-limited API access")
         return True
 
     # Validate the token by making a test request
@@ -34,19 +35,23 @@ def validate_github_token() -> bool:
         )
 
         if response.status_code == 200:
-            logger.log_info("GitHub token validated successfully")
+            if logger:
+                logger.log_info("GitHub token validated successfully")
             return True
         elif response.status_code == 401:
             print("Error: Invalid GITHUB_TOKEN provided", file=sys.stderr)
-            logger.log_info("Invalid GITHUB_TOKEN detected")
+            if logger:
+                logger.log_info("Invalid GITHUB_TOKEN detected")
             return False
         else:
             # Other errors - continue with caution
-            logger.log_info(f"GitHub token validation returned status {response.status_code}")
+            if logger:
+                logger.log_info(f"GitHub token validation returned status {response.status_code}")
             return True
     except Exception as e:
         # Network error or other issue - continue anyway
-        logger.log_debug(f"Token validation failed with error: {e}")
+        if logger:
+            logger.log_debug(f"Token validation failed with error: {e}")
         return True
 
 
@@ -376,13 +381,13 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
 
 def main() -> int:
+    global logger
+    logger = Logger()
 
     # Validate log file path if provided
     if not validate_log_file():
         return 1
 
-    global logger
-    logger = Logger()
     logger.log_info("Starting Hugging Face CLI...")
 
     # Validate GitHub token if provided
