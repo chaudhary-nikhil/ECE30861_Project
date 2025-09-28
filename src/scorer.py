@@ -199,7 +199,7 @@ def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     return size_score
 
 
-def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict[str, Any]:
+def analyze_model_repository(model_name: str, model_url: str, model_type: str = "model") -> Dict[str, Any]:
     """
     Download and analyze model repository to determine actual model size.
     Uses Hugging Face Hub for reliable model file access.
@@ -213,15 +213,15 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
     """
     # Debug: Print the model name being processed
     # print(f"DEBUG: Processing model_name: {model_name}, model_type: {model_type}")
-    
+
     # Disable progress bars globally
     import os
     os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-    
+
     import contextlib
     import io
-    
+
     # Redirect stdout and stderr to suppress all output from huggingface_hub
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         temp_dir = None
@@ -234,7 +234,7 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
             # Use Hugging Face Hub to download only essential model files
             try:
                 from huggingface_hub import snapshot_download
-                
+
                 # Download only the essential model files for size calculation
                 downloaded_path = snapshot_download(
                     repo_id=model_name,
@@ -255,19 +255,19 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
             except ImportError:
                 # print("huggingface_hub not available, falling back to Git clone")
                 # Fallback to Git clone if huggingface_hub is not available
-                if "/" in model_name:
-                    owner, repo = model_name.split("/", 1)
-                    repo_url = f"https://huggingface.co/{owner}/{repo}.git"
-                else:
-                    repo_url = f"https://huggingface.co/{model_name}.git"
+                # if "/" in model_name:
+                #     owner, repo = model_name.split("/", 1)
+                #     repo_url = f"https://huggingface.co/{owner}/{repo}.git"
+                # else:
+                #     repo_url = f"https://huggingface.co/{model_name}.git"
 
                 # print(f"Cloning repository: {repo_url}")
 
                 # Clone repository
                 if GIT_PYTHON_AVAILABLE:
-                    repo = git.Repo.clone_from(repo_url, temp_dir)
+                    repo = git.Repo.clone_from(model_url, temp_dir)
                 else:
-                    result = subprocess.run(['git', 'clone', '--depth', '1', repo_url, temp_dir],
+                    result = subprocess.run(['git', 'clone', '--depth', '1', model_url, temp_dir],
                                          capture_output=True, text=True, timeout=120)
                     if result.returncode != 0:
                         raise Exception(f"Git clone failed: {result.stderr}")
@@ -383,7 +383,7 @@ def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Di
         }
 
 
-def estimate_model_size_with_timing(model_name: str, model_type: str = "model") -> tuple[float, int]:
+def estimate_model_size_with_timing(model_name: str, model_url: str, model_type: str = "model") -> tuple[float, int]:
     """
     Estimate model size with timing measurement.
 
@@ -402,7 +402,7 @@ def estimate_model_size_with_timing(model_name: str, model_type: str = "model") 
         return 500, latency_ms  # Default for unknown models
 
     # For certain models that have redirection issues, use known sizes
-    if model_name in ["google-bert/bert-base-uncased", "google-bert/bert-large-uncased", 
+    if model_name in ["google-bert/bert-base-uncased", "google-bert/bert-large-uncased",
                       "google-bert/bert-base-cased", "google-bert/bert-large-cased"]:
         end_time = time.perf_counter()
         latency_ms = int((end_time - start_time) * 1000)
@@ -410,7 +410,7 @@ def estimate_model_size_with_timing(model_name: str, model_type: str = "model") 
         return size_mb, latency_ms
 
     # Analyze the actual repository
-    analysis = analyze_model_repository(model_name, model_type)
+    analysis = analyze_model_repository(model_name, model_url, model_type)
 
     end_time = time.perf_counter()
     latency_ms = int((end_time - start_time) * 1000)
@@ -422,7 +422,7 @@ def estimate_model_size_with_timing(model_name: str, model_type: str = "model") 
     return analysis['size_mb'], latency_ms
 
 
-def estimate_model_size(model_name: str, model_type: str = "model") -> float:
+def estimate_model_size(model_name: str, model_url: str, model_type: str = "model") -> float:
     """
     Estimate model size by analyzing the actual repository.
 
@@ -437,7 +437,7 @@ def estimate_model_size(model_name: str, model_type: str = "model") -> float:
         return 500  # Default for unknown models
 
     # Analyze the actual repository
-    analysis = analyze_model_repository(model_name, model_type)
+    analysis = analyze_model_repository(model_name, model_url, model_type)
 
     if 'error' in analysis:
         print(f"Warning: {analysis['error']}")
@@ -549,7 +549,11 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
     dataset_qual = 0.95 if downloads > 1000000 else 0.0
 
     # Code quality using Flake8 analysis
-    code_qual, code_qual_latency = calculate_code_quality_with_flake8(code_url, model_name)
+    if code_url is not None:
+        code_qual, code_qual_latency = calculate_code_quality_with_flake8(code_url, model_name)
+    else:
+        code_qual = 0
+        code_qual_latency = 0
 
 
     return {
@@ -655,7 +659,7 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     # Extract model name
     match = re.search(r"https://huggingface\.co/(?:models/)?([\w-]+(?:/[\w-]+)?)", url)
     if not match:
-        estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "model")
+        estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", url, "model")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
@@ -670,7 +674,7 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     data = make_request(api_url)
 
     if not data:
-        estimated_size, size_score_latency = estimate_model_size_with_timing(model_name, "model")
+        estimated_size, size_score_latency = estimate_model_size_with_timing(model_name, url, "model")
         size_score = calculate_size_score(estimated_size)
         return ScoreResult(
             url,
@@ -853,15 +857,15 @@ def score_url(url: str, category: UrlCategory, code_url: Optional[str] = None) -
 def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
     """
     Run Flake8 on a code repository and calculate quality score.
-    
+
     Args:
         repo_path: Path to the repository directory
-        
+
     Returns:
         tuple of (quality_score, latency_ms)
     """
     start_time = time.time()
-    
+
     try:
         # First, check if there are any Python files in the repository
         python_files = []
@@ -869,7 +873,7 @@ def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
             for file in files:
                 if file.endswith('.py'):
                     python_files.append(os.path.join(root, file))
-        
+
         # If no Python files found, return 0.0 (no code to analyze)
         if not python_files:
             quality_score = 0.0
@@ -881,11 +885,11 @@ def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
                 text=True,
                 timeout=30
             )
-            
+
             # Parse flake8 output to get error counts
             output_lines = result.stdout.strip().split('\n')
             total_errors = 0
-            
+
             # Extract error count from the last line if it exists
             if output_lines and output_lines[-1]:
                 try:
@@ -901,7 +905,7 @@ def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
                             total_errors = int(error_match.group(1))
                 except (ValueError, IndexError):
                     pass
-            
+
             # Calculate quality score based on error count
             # More lenient scoring that better reflects real-world code quality
             if total_errors == 0:
@@ -922,58 +926,58 @@ def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
                 quality_score = 0.3  # Very poor (1001-2000 errors)
             else:
                 quality_score = 0.2  # Extremely poor (2000+ errors)
-            
+
     except subprocess.TimeoutExpired:
         quality_score = 0.0
     except Exception:
         quality_score = 0.0
-    
+
     end_time = time.time()
     latency_ms = int((end_time - start_time) * 1000)
-    
+
     return quality_score, latency_ms
 
 
 def find_code_repo_via_genai(model_name: str) -> Optional[str]:
     """
     Use Purdue GenAI Studio API to find code repository link in model README.
-    
+
     Uses the official Purdue GenAI Studio API endpoint:
     https://genai.rcac.purdue.edu/api/chat/completions
-    
+
     Args:
         model_name: Name of the model (e.g., "google-bert/bert-base-uncased")
-        
+
     Returns:
         Code repository URL if found, None otherwise
     """
     try:
         # Purdue GenAI Studio API endpoint (from official documentation)
         api_url = "https://genai.rcac.purdue.edu/api/chat/completions"
-        
+
         # Prepare the prompt to find code repository in model README
         prompt = f"""
         Please analyze the Hugging Face model "{model_name}" and find any code repository links in its README or documentation.
-        
+
         Look for:
         - GitHub repository links
-        - GitLab repository links  
+        - GitLab repository links
         - Other code hosting platform links
         - Source code references
-        
+
         Return only the URL if found, or "NO_CODE_FOUND" if no code repository is found.
         """
-        
+
         headers = {
             "Authorization": "Bearer sk-ed2de44f587645c5b3fe62bb8f2328fc",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "llama3.1:latest",  # Using the model specified in Purdue GenAI Studio docs
             "messages": [
                 {
-                    "role": "user", 
+                    "role": "user",
                     "content": prompt
                 }
             ],
@@ -981,114 +985,112 @@ def find_code_repo_via_genai(model_name: str) -> Optional[str]:
             "max_tokens": 200,
             "temperature": 0.1
         }
-        
+
         response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-        
+
         if response.status_code == 200:
             result = response.json()
             content = result.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
-            
+
             # Check if a valid URL was returned
             if content and content != "NO_CODE_FOUND":
                 # Extract URLs from the response text
                 import re
                 url_pattern = r'https://(?:github\.com|gitlab\.com|bitbucket\.org|sourceforge\.net)/[^\s\)]+'
                 urls = re.findall(url_pattern, content)
-                
+
                 if urls:
                     # Return the first valid URL found
                     return urls[0]
         else:
             loggerInstance.logger.log_info(f"Purdue GenAI Studio API returned status {response.status_code}: {response.text}")
-        
+
         # Fallback: try to extract GitHub repo from model name
         if '/' in model_name:
             owner, repo = model_name.split('/', 1)
             github_url = f"https://github.com/{owner}/{repo}"
-            
+
             # Test if the URL exists
             test_response = requests.get(github_url, timeout=5)
             if test_response.status_code == 200:
                 return github_url
-        
+
         return None
-        
+
     except Exception as e:
         # Log the error but don't fail completely
         loggerInstance.logger.log_info(f"GenAI API error: {e}")
-        
+
         # Fallback: try to extract GitHub repo from model name
         try:
             if '/' in model_name:
                 owner, repo = model_name.split('/', 1)
                 github_url = f"https://github.com/{owner}/{repo}"
-                
+
                 test_response = requests.get(github_url, timeout=5)
                 if test_response.status_code == 200:
                     return github_url
         except Exception:
             pass
-            
+
         return None
 
 
-def calculate_code_quality_with_flake8(code_url: Optional[str], model_name: str) -> tuple[float, int]:
+def calculate_code_quality_with_flake8(code_url: str, model_name: str) -> tuple[float, int]:
     """
     Calculate code quality using Flake8, with fallback to GenAI API.
-    
+
     Args:
         code_url: Direct code URL if available
         model_name: Model name for fallback search
-        
+
     Returns:
         tuple of (quality_score, latency_ms)
     """
     start_time = time.time()
-    
-    # If we have a direct code URL, use it
-    if code_url:
-        try:
-            # Clone the repository to a temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                repo_path = os.path.join(temp_dir, "repo")
-                
-                # Clone the repository
-                subprocess.run(
-                    ['git', 'clone', '--depth', '1', code_url, repo_path],
-                    capture_output=True,
-                    timeout=60
-                )
-                
-                # Run flake8 on the cloned repository
-                quality_score, _ = run_flake8_on_repo(repo_path)
-                
-        except Exception:
-            quality_score = 0.0
-    else:
-        # Fallback: try to find code repo via GenAI API
-        code_repo_url = find_code_repo_via_genai(model_name)
-        
-        if code_repo_url:
-            try:
-                # Clone and analyze the found repository
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    repo_path = os.path.join(temp_dir, "repo")
-                    
-                    subprocess.run(
-                        ['git', 'clone', '--depth', '1', code_repo_url, repo_path],
-                        capture_output=True,
-                        timeout=60
-                    )
-                    
-                    quality_score, _ = run_flake8_on_repo(repo_path)
-                    
-            except Exception:
-                quality_score = 0.0
-        else:
-            # No code repository found, return 0
-            quality_score = 0.0
-    
+
+    try:
+        # Clone the repository to a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = os.path.join(temp_dir, "repo")
+
+            # Clone the repository
+            subprocess.run(
+                ['git', 'clone', '--depth', '1', code_url, repo_path],
+                capture_output=True,
+                timeout=60
+            )
+
+            # Run flake8 on the cloned repository
+            quality_score, _ = run_flake8_on_repo(repo_path)
+
+    except Exception:
+        quality_score = 0.0
+    #else:
+    #    # Fallback: try to find code repo via GenAI API
+    #    code_repo_url = find_code_repo_via_genai(model_name)
+
+    #    if code_repo_url:
+    #        try:
+    #            # Clone and analyze the found repository
+    #            with tempfile.TemporaryDirectory() as temp_dir:
+    #                repo_path = os.path.join(temp_dir, "repo")
+
+    #                subprocess.run(
+    #                    ['git', 'clone', '--depth', '1', code_repo_url, repo_path],
+    #                    capture_output=True,
+    #                    timeout=60
+    #                )
+
+    #                quality_score, _ = run_flake8_on_repo(repo_path)
+
+    #        except Exception:
+    #            quality_score = 0.0
+    #    else:
+    #        # No code repository found, return 0
+    #        quality_score = 0.0
+
     end_time = time.time()
     latency_ms = int((end_time - start_time) * 1000)
-    
+
     return quality_score, latency_ms
