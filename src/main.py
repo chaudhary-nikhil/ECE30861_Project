@@ -45,7 +45,8 @@ def validate_github_token() -> bool:
             return True
     except Exception as e:
         # Network error or other issue - continue anyway
-        logger.log_debug(f"Token validation failed with error: {e}")
+        if logger:
+            logger.log_debug(f"Token validation failed with error: {e}")
         return True
 
 
@@ -199,14 +200,15 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
         loggerInstance.logger.log_info(f"   Category: {model.category.name}")
 
         # Calculate score
-        modelResultOptional: ScoreResult | None= score_url(model.link, model.category)
+        code_url = code.link if code else None
+        modelResultOptional: ScoreResult | None= score_url(model.link, model.category, code_url)
         if modelResultOptional is None:
             raise Exception("Model can't be scored")
         else:
             modelResult: ScoreResult = modelResultOptional
 
         datasetResult: ScoreResult | None = score_url(dataset.link, dataset.category)
-        codeResult: ScoreResult | None = score_url(code.link, code.category)
+        codeResult: ScoreResult | None = score_url(code.link, code.category) if code else None
 
 
         # Display results
