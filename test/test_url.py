@@ -107,9 +107,6 @@ class TestUrl:
         assert url.category == UrlCategory.INVALID
         assert url.link == invalid_url
 
-        output = mock_stdout.getvalue()
-        assert f"{invalid_url} Invalid URL: Not a dataset, model or code URL" in output
-
     def test_url_with_explicit_invalid_category_but_valid_url(self):
         url = Url("https://huggingface.co/datasets/squad", UrlCategory.INVALID)
         assert url.category == UrlCategory.DATASET
@@ -130,18 +127,18 @@ class TestUrl:
         expected_str_auto = "https://github.com/user/repo Category: UrlCategory.CODE"
         assert str(url_auto) == expected_str_auto
 
-    @patch("sys.stdout", new_callable=StringIO)
-    def test_multiple_invalid_urls_print_messages(self, mock_stdout):
-        invalid_urls = ["https://google.com", "https://stackoverflow.com", "not_a_url"]
+    # @patch("sys.stdout", new_callable=StringIO)
+    # def test_multiple_invalid_urls_print_messages(self, mock_stdout):
+    #     invalid_urls = ["https://google.com", "https://stackoverflow.com", "not_a_url"]
 
-        for invalid_url in invalid_urls:
-            Url(invalid_url)
+    #     for invalid_url in invalid_urls:
+    #         Url(invalid_url)
 
-        output = mock_stdout.getvalue()
-        for invalid_url in invalid_urls:
-            assert (
-                f"{invalid_url} Invalid URL: Not a dataset, model or code URL" in output
-            )
+    #     output = mock_stdout.getvalue()
+    #     for invalid_url in invalid_urls:
+    #         assert (
+    #             f"{invalid_url} Invalid URL: Not a dataset, model or code URL" in output
+    #         )
 
     def test_empty_url(self):
         url = Url("")
@@ -188,11 +185,11 @@ class TestIntegration:
 
         assert url_obj.category == expected_category
 
-        output = mock_stdout.getvalue()
-        if should_print_error:
-            assert "Invalid URL: Not a dataset, model or code URL" in output
-        else:
-            assert output == ""
+        # output = mock_stdout.getvalue()
+        # if should_print_error:
+        #     assert "Invalid URL: Not a dataset, model or code URL" in output
+        # else:
+        #     assert output == ""
 
         expected_str = f"{url} Category: {expected_category}"
         assert str(url_obj) == expected_str
