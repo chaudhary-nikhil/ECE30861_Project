@@ -22,7 +22,7 @@ case "$ARG" in
 
         echo "Installing dependencies..."
 
-        pip install -r requirements.txt
+        pip install --user -r requirements.txt
 
         echo "Dependencies installed successfully."
         exit 0
