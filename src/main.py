@@ -5,7 +5,7 @@ import json
 import time
 import os
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .log.logger import Logger
 from .log import loggerInstance
 

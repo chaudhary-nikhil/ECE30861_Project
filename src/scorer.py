@@ -2,7 +2,7 @@
 Simplified scoring framework for datasets, models, and code.
 """
 
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Optional
 from dataclasses import dataclass
 import requests
 import re

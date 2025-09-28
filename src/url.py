@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 import re
 
 from .log.logger import Logger
@@ -50,7 +51,7 @@ class Url:
 
 # A Url Set consists of a code (optional), dataset(optional) and model (required) URL
 class UrlSet:
-    def __init__(self, code: Url | None, dataset: Url | None, model: Url):
+    def __init__(self, code: Optional[Url], dataset: Optional[Url], model: Url):
         self.code = code
         self.dataset = dataset
         self.model = model
