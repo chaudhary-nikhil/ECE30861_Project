@@ -373,8 +373,6 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
 
 
 def main() -> int:
-    global logger
-    logger = Logger()
 
     # Validate log file path if provided
     if not validate_log_file():
