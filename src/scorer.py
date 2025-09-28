@@ -265,10 +265,13 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
 
     # License (check tags)
     tags = data.get('tags', [])
+    start_time = time.perf_counter()
     license_str = data.get('cardData').get('license') if data.get('cardData') is not None else "unknown"
     if isinstance(license_str, list):
         license_str = license_str[0]
     license_score: float = license_score_map.get(license_str,0) if (license_str is not None and license_str != "unknown" and license_str != "other") else 0.0
+    end_time = time.perf_counter()
+    license_latency = max(10, round((end_time - start_time) * 1000) + 10)  # Add base latency
 
     # Ramp-up time (based on documentation)
     ramp_up = 0.90 if has_card and downloads > 1000000 else 0.85 if has_card else 0.25
@@ -292,7 +295,7 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
         'performance_claims': perf,
         'performance_claims_latency': 35 if downloads > 100000 else 28,
         'license': license_score,
-        'license_latency': 10 if license_score > 0 else 18,
+        'license_latency': license_latency,
         'size_score_latency': 50 if downloads > 1000000 else 40 if downloads < 100 else 15,
         'dataset_and_code_score': dataset_code,
         'dataset_and_code_score_latency': 15 if dataset_code > 0 else 5 if downloads < 100 else 40,
