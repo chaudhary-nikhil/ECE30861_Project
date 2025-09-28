@@ -124,8 +124,8 @@ def parseUrlFile(urlFile: str) -> list[UrlSet]:
         urls_in_line = line.split(",")
 
         # Code and dataset URL can be empty
-        code_url: Url | None = Url(urls_in_line[0]) if len(line[0]) > 0 else None
-        dataset_url: Url | None = Url(urls_in_line[1]) if len(line[1]) > 0 else None
+        code_url: Url | None = Url(urls_in_line[0]) if len(urls_in_line[0]) > 0 else None
+        dataset_url: Url | None = Url(urls_in_line[1]) if len(urls_in_line[1]) > 0 else None
         model_url : Url = Url(urls_in_line[2])
         urlset_list.append(UrlSet(code_url, dataset_url, model_url))
 
@@ -198,14 +198,15 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
         loggerInstance.logger.log_info(f"   Category: {model.category.name}")
 
         # Calculate score
-        modelResultOptional: ScoreResult | None= score_url(model.link, model.category)
+        code_url = code.link if code else None
+        modelResultOptional: ScoreResult | None= score_url(model.link, model.category, code_url)
         if modelResultOptional is None:
             raise Exception("Model can't be scored")
         else:
             modelResult: ScoreResult = modelResultOptional
 
-        datasetResult: ScoreResult | None = score_url(dataset.link, dataset.category)
-        codeResult: ScoreResult | None = score_url(code.link, code.category)
+        datasetResult: ScoreResult | None = score_url(dataset.link, dataset.category) if dataset else None
+        codeResult: ScoreResult | None = score_url(code.link, code.category) if code else None
 
 
         # Display results
