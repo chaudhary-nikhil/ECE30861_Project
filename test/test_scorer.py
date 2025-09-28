@@ -19,10 +19,10 @@ from src.scorer import (
     calculate_code_bus_factor,
     calculate_bus_factor_with_timing,
     is_major_organization,
-    calculate_performance_claims_with_timing,
     UrlCategory,
 )
 from src.ramp_up_time import calculate_ramp_up_time_with_timing
+from src.performance_claims import calculate_performance_claims_with_timing
 from src.url import UrlCategory
 
 
