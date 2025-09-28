@@ -37,8 +37,8 @@ def calculate_dataset_quality(data: Dict[str, Any], downloads: int, likes: int) 
     Returns:
         Dataset quality score between 0.0 and 1.0
     """
-    # Import license score map from scorer module
-    from .scorer import license_score_map
+    # Import license score map from license module
+    from .license import license_score_map
     
     quality_factors = {}
     
