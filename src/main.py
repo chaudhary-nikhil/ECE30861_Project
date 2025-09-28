@@ -52,7 +52,6 @@ def validate_github_token() -> bool:
             loggerInstance.logger.log_info("GitHub token validated successfully")
             return True
         elif response.status_code == 401:
-            loggerInstance.logger.log_info("Error: Invalid GITHUB_TOKEN provided", file=sys.stderr)
             loggerInstance.logger.log_info("Invalid GITHUB_TOKEN detected")
             return False
         else:
@@ -140,9 +139,9 @@ def parseUrlFile(urlFile: str) -> list[UrlSet]:
         urls_in_line = line.split(",")
 
         # Code and dataset URL can be empty
-        code_url: Url | None = Url(urls_in_line[0]) if len(urls_in_line[0]) > 0 else None
-        dataset_url: Url | None = Url(urls_in_line[1]) if len(urls_in_line[1]) > 0 else None
-        model_url : Url = Url(urls_in_line[2])
+        code_url: Url | None = Url(urls_in_line[0].strip()) if len(urls_in_line[0]) > 0 else None
+        dataset_url: Url | None = Url(urls_in_line[1].strip()) if len(urls_in_line[1]) > 0 else None
+        model_url : Url = Url(urls_in_line[2].strip())
         urlset_list.append(UrlSet(code_url, dataset_url, model_url))
 
 #        # Process each URL in the line
