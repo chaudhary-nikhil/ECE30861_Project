@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 from .integrated_data_fetcher import IntegratedDataFetcher
 from .log import loggerInstance
+from .dataset_quality import calculate_dataset_quality_with_timing
 import subprocess
 import tempfile
 import os
@@ -228,19 +229,18 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
         try:
             # Create temporary directory
             temp_dir = tempfile.mkdtemp(prefix="model_analysis_")
-
-            # print(f"Downloading model files for: {model_name}")
-
-            # Use Hugging Face Hub to download only essential model files
+            
             try:
                 from huggingface_hub import snapshot_download
-                
+                # Get HF token from environment
+                hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
                 # Download only the essential model files for size calculation
                 downloaded_path = snapshot_download(
                     repo_id=model_name,
                     cache_dir=temp_dir,
                     local_dir=temp_dir,
                     local_dir_use_symlinks=False,
+                    token=hf_token,
                     allow_patterns=[
                         "pytorch_model.bin",    # Primary PyTorch model
                         "model.safetensors",    # Primary SafeTensors model
@@ -248,12 +248,11 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
                         "*.bin",                # Other PyTorch models
                         "*.safetensors",         # Other SafeTensors models
                         "*.h5",                 # Other TensorFlow models
-                    ],
-                    tqdm_class=None  # Disable progress bars
+                    ]
                 )
-                # print(f"Essential model files downloaded to: {downloaded_path}")
+                print(f"Essential model files downloaded to: {downloaded_path}")
             except ImportError:
-                # print("huggingface_hub not available, falling back to Git clone")
+                print("huggingface_hub not available, falling back to Git clone")
                 # Fallback to Git clone if huggingface_hub is not available
                 if "/" in model_name:
                     owner, repo = model_name.split("/", 1)
@@ -261,7 +260,7 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
                 else:
                     repo_url = f"https://huggingface.co/{model_name}.git"
 
-                # print(f"Cloning repository: {repo_url}")
+                print(f"Cloning repository: {repo_url}")
 
                 # Clone repository
                 if GIT_PYTHON_AVAILABLE:
@@ -271,9 +270,6 @@ def analyze_model_repository(model_name: str, model_type: str = "model") -> Dict
                                          capture_output=True, text=True, timeout=120)
                     if result.returncode != 0:
                         raise Exception(f"Git clone failed: {result.stderr}")
-            except Exception as e:
-                # print(f"Download failed: {e}")
-                raise e
 
             # Analyze model files
             analysis = _analyze_model_files(temp_dir, model_name, model_type)
@@ -445,7 +441,11 @@ def estimate_model_size(model_name: str, model_type: str = "model") -> float:
 
     return analysis['size_mb']
 
-_data_fetcher = IntegratedDataFetcher()
+# Initialize data fetcher with API tokens from environment variables
+import os
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+github_token = os.getenv("GITHUB_TOKEN")
+_data_fetcher = IntegratedDataFetcher(hf_api_token=hf_token, github_token=github_token)
 MAJOR_ORGS = ['google', 'openai', 'microsoft', 'meta', 'facebook', 'anthropic', 'nvidia', 'tensorflow']
 def is_major_organization(name: str) -> bool:
     """Check if a name contains a major organization"""
@@ -545,8 +545,8 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
     # Dataset/code score (based on linked resources in card)
     dataset_code = 1.0 if downloads > 1000000 else 0.0
 
-    # Dataset quality
-    dataset_qual = 0.95 if downloads > 1000000 else 0.0
+    # Dataset quality - enhanced calculation with timing
+    dataset_qual, dataset_qual_latency = calculate_dataset_quality_with_timing(data, downloads, likes)
 
     # Code quality using Flake8 analysis
     code_qual, code_qual_latency = calculate_code_quality_with_flake8(code_url, model_name)
@@ -563,7 +563,7 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
         'dataset_and_code_score': dataset_code,
         'dataset_and_code_score_latency': 15 if dataset_code > 0 else 5 if downloads < 100 else 40,
         'dataset_quality': dataset_qual,
-        'dataset_quality_latency': 20 if dataset_qual > 0 else 0,
+        'dataset_quality_latency': dataset_qual_latency,
         'code_quality': code_qual,
         'code_quality_latency': code_qual_latency,
     }
@@ -807,7 +807,7 @@ def score_code(url: str) -> ScoreResult:
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.CODE)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, data_merged)
-    return ScoreResult(  # ← Add this line
+    return ScoreResult(
 
         url,
         UrlCategory.CODE,
