@@ -542,6 +542,8 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
 
     # Performance claims - enhanced calculation with timing
     perf, perf_latency = calculate_performance_claims_with_timing(data, model_name)
+    # Performance claims - enhanced calculation with timing
+    perf, perf_latency = calculate_performance_claims_with_timing(data, model_name)
 
     # Dataset/code score (based on linked resources in card)
     dataset_code = 1.0 if downloads > 1000000 else 0.0
