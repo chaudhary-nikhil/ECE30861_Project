@@ -217,33 +217,33 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
             # Show key details based on category
   #          if url.category == UrlCategory.DATASET:
   #              if result.details.get("downloads", 0) > 0:
-  #                  loggerInstance.logger.log_info(f"     • Downloads: {result.details['downloads']:,}")
+  #                  loggerInstance.logger.log_info(f"     - Downloads: {result.details['downloads']:,}")
   #              if result.details.get("likes", 0) > 0:
-  #                  loggerInstance.logger.log_info(f"     • Likes: {result.details['likes']}")
+  #                  loggerInstance.logger.log_info(f"     - Likes: {result.details['likes']}")
   #              if result.details.get("has_description"):
-  #                  loggerInstance.logger.log_info(f"     • Has Description: ")
+  #                  loggerInstance.logger.log_info(f"     - Has Description: ")
   #
   #         elif url.category == UrlCategory.MODEL:
             if modelResult.details.get("downloads", 0) > 0:
-                loggerInstance.logger.log_info(f"     • Downloads: {modelResult.details['downloads']:,}")
+                loggerInstance.logger.log_info(f"     - Downloads: {modelResult.details['downloads']:,}")
             if modelResult.details.get("likes", 0) > 0:
-                loggerInstance.logger.log_info(f"     • Likes: {modelResult.details['likes']}")
+                loggerInstance.logger.log_info(f"     - Likes: {modelResult.details['likes']}")
             if modelResult.details.get("has_model_card"):
-                loggerInstance.logger.log_info("     • Has Model Card: ")
+                loggerInstance.logger.log_info("     - Has Model Card: ")
             if modelResult.details.get("pipeline_tag"):
-                loggerInstance.logger.log_info(f"     • Pipeline Tag: {modelResult.details['pipeline_tag']}")
+                loggerInstance.logger.log_info(f"     - Pipeline Tag: {modelResult.details['pipeline_tag']}")
 #
 #            elif url.category == UrlCategory.CODE:
 #                if result.details.get("stars", 0) > 0:
-#                    loggerInstance.logger.log_info(f"     • Stars: {result.details['stars']:,}")
+#                    loggerInstance.logger.log_info(f"     - Stars: {result.details['stars']:,}")
 #                if result.details.get("forks", 0) > 0:
-#                    loggerInstance.logger.log_info(f"     • Forks: {result.details['forks']:,}")
+#                    loggerInstance.logger.log_info(f"     - Forks: {result.details['forks']:,}")
 #                if result.details.get("has_description"):
-#                    loggerInstance.logger.log_info(f"     • Has Description: ")
+#                    loggerInstance.logger.log_info(f"     - Has Description: ")
 #                if result.details.get("has_license"):
-#                    loggerInstance.logger.log_info(f"     • Has License: ")
+#                    loggerInstance.logger.log_info(f"     - Has License: ")
 #                if result.details.get("language"):
-#                    loggerInstance.logger.log_info(f"     • Language: {result.details['language']}")
+#                    loggerInstance.logger.log_info(f"     - Language: {result.details['language']}")
 
             # Add to totals
             total_score += modelResult.score

@@ -371,7 +371,7 @@ class IntegratedDataFetcher:
         try:
             from huggingface_hub import HfApi
 
-            api = HfApi()
+            api = HfApi(token=self.hf_api_token)
             ds_info = api.dataset_info(repo_id=dataset_id, files_metadata=True)
             total_size_bytes = 0
             file_count = 0
