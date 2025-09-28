@@ -267,30 +267,9 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
             valid_urls += 1
 
             # Add to NDJSON results
-            # Calculate weighted net_score with realistic latency
-            start_time = time.perf_counter()
-            weights = {
-                'bus_factor': 0.15,
-                'license': 0.15,
-                'ramp_up_time': 0.15,
-                'performance_claims': 0.15,
-                'size_score': 0.10,
-                'dataset_and_code_score': 0.15,
-                'dataset_quality': 0.075,
-                'code_quality': 0.075
-            }
-            net_score = (
-                modelResult.details.get('bus_factor', 0.5) * weights['bus_factor'] +
-                modelResult.details.get('license', 0.5) * weights['license'] +
-                modelResult.details.get('ramp_up_time', 0.5) * weights['ramp_up_time'] +
-                modelResult.details.get('performance_claims', 0.5) * weights['performance_claims'] +
-                sum(modelResult.details.get('size_score', {}).values()) / 4 * weights['size_score'] +
-                modelResult.details.get('dataset_and_code_score', 0.5) * weights['dataset_and_code_score'] +
-                modelResult.details.get('dataset_quality', 0.5) * weights['dataset_quality'] +
-                modelResult.details.get('code_quality', 0.5) * weights['code_quality']
-            )
-            end_time = time.perf_counter()
-            net_score_latency = max(100, round((end_time - start_time) * 1000) + 100)  # Add base latency
+            # Use net_score calculated by the new net_score.py module
+            net_score = modelResult.details.get('net_score', 0.0)
+            net_score_latency = modelResult.details.get('net_score_latency', 0)
 
             ndjson_entry = {
                 "name": modelResult.details.get("name", "unknown").split('/')[-1],  # Just model name

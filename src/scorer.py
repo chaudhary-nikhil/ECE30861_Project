@@ -17,6 +17,7 @@ from .log import loggerInstance
 from .dataset_quality import calculate_dataset_quality_with_timing
 from .ramp_up_time import calculate_ramp_up_time_with_timing
 from .performance_claims import calculate_performance_claims_with_timing
+from .net_score import calculate_net_score_with_timing
 import subprocess
 import json
 
@@ -550,6 +551,7 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
     # Code quality using Flake8 analysis
     code_qual, code_qual_latency = calculate_code_quality_with_flake8(code_url, model_name)
 
+    # Net score will be calculated separately with complete metrics including bus_factor and size_score
 
     return {
         'ramp_up_time': ramp_up,
@@ -569,18 +571,23 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory, code_url: Opt
 
 def score_dataset(url: str) -> ScoreResult:
     """Score a Hugging Face dataset."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+    
     # Extract dataset name
     match = re.search(r"https://huggingface\.co/datasets/([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size = 1000  # Default 1GB for datasets
         size_score_latency = 10  # Fast since we're not downloading
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.DATASET,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     dataset_name = match.group(1)
@@ -630,6 +637,19 @@ def score_dataset(url: str) -> ScoreResult:
     metrics = calculate_metrics(data_merged, UrlCategory.DATASET, None, dataset_name)
 
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.DATASET, data_merged)
+    
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+    
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+    
     return ScoreResult(
         url,
         UrlCategory.DATASET,
@@ -644,6 +664,8 @@ def score_dataset(url: str) -> ScoreResult:
             "size_score_latency": size_score_latency,
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
@@ -651,17 +673,22 @@ def score_dataset(url: str) -> ScoreResult:
 
 def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     """Score a Hugging Face model."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+    
     # Extract model name
     match = re.search(r"https://huggingface\.co/(?:models/)?([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "model")
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.MODEL,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     model_name = match.group(1)
@@ -720,6 +747,18 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
     metrics = calculate_metrics(data_merged, UrlCategory.MODEL, code_url, model_name)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.MODEL, data_merged)
 
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+
     return ScoreResult(
         url,
         UrlCategory.MODEL,
@@ -735,6 +774,8 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
@@ -742,17 +783,22 @@ def score_model(url: str, code_url: Optional[str] = None) -> ScoreResult:
 
 def score_code(url: str) -> ScoreResult:
     """Score a GitHub repository."""
+    # Start timing for total net_score_latency
+    total_start_time = time.perf_counter()
+    
     # Extract repo info
     match = re.search(r"https://github\.com/([\w-]+)/([\w-]+)", url)
     if not match:
         estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "code")
         size_score = calculate_size_score(estimated_size)
+        total_end_time = time.perf_counter()
+        total_latency = int((total_end_time - total_start_time) * 1000)
         return ScoreResult(
             url,
             UrlCategory.CODE,
             0.0,
             10.0,
-            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency},
+            {"error": "Invalid URL", "name": "unknown", "size_score": size_score, "size_score_latency": size_score_latency, "net_score": 0.0, "net_score_latency": total_latency},
         )
 
     owner, repo = match.groups()
@@ -806,8 +852,20 @@ def score_code(url: str) -> ScoreResult:
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.CODE)
     bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, data_merged)
+    
+    # Recalculate net score with complete metrics including bus_factor and size_score
+    complete_metrics = {
+        **metrics,
+        'bus_factor': bus_factor_score,
+        'size_score': size_score
+    }
+    net_score, _ = calculate_net_score_with_timing(complete_metrics)
+    
+    # Calculate total latency for net_score_latency (includes all individual metric calculations)
+    total_end_time = time.perf_counter()
+    total_net_score_latency = int((total_end_time - total_start_time) * 1000)
+    
     return ScoreResult(
-
         url,
         UrlCategory.CODE,
         min(score, 10.0),
@@ -823,6 +881,8 @@ def score_code(url: str) -> ScoreResult:
             "bus_factor": bus_factor_score,
             "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
+            "net_score": net_score,
+            "net_score_latency": total_net_score_latency,
             **metrics
         },
     )
