@@ -15,7 +15,7 @@ from src.url import UrlCategory
 
 def test_net_score_latency_accuracy():
     """Test that net_score_latency is calculated correctly."""
-    print("🔧 Testing net_score_latency Accuracy")
+    print("Testing net_score_latency Accuracy")
     print("=" * 50)
     
     # Test data
@@ -49,15 +49,15 @@ def test_net_score_latency_accuracy():
     
     # Check if the fix is working
     if net_score_latency > 0:
-        print(f"✅ SUCCESS: net_score_latency is now {net_score_latency}ms (was 0 before)")
+        print(f"SUCCESS: net_score_latency is now {net_score_latency}ms (was 0 before)")
         return True
     else:
-        print(f"❌ FAILURE: net_score_latency is still {net_score_latency}ms")
+        print(f"FAILURE: net_score_latency is still {net_score_latency}ms")
         return False
 
 def simulate_sequential_vs_parallel():
     """Simulate and compare sequential vs parallel execution."""
-    print(f"\n📊 Sequential vs Parallel Performance Analysis")
+    print(f"\nSequential vs Parallel Performance Analysis")
     print("=" * 60)
     
     # Realistic I/O times for each metric
@@ -85,7 +85,7 @@ def simulate_sequential_vs_parallel():
     improvement = (time_saved / seq_total) * 100
     speedup = seq_total / par_total
     
-    print(f"\n🎯 Performance Results:")
+    print(f"\nPerformance Results:")
     print(f"  Time saved: {time_saved:.1f}s")
     print(f"  Improvement: {improvement:.1f}%")
     print(f"  Speedup: {speedup:.1f}x")
@@ -94,7 +94,7 @@ def simulate_sequential_vs_parallel():
 
 def test_actual_parallel_performance():
     """Test actual parallel implementation performance."""
-    print(f"\n🧪 Testing Actual Parallel Implementation")
+    print(f"\nTesting Actual Parallel Implementation")
     print("=" * 50)
     
     # Test data
@@ -127,7 +127,7 @@ def test_actual_parallel_performance():
         time.sleep(0.1)  # Small delay between tests
     
     avg_time = statistics.mean(times)
-    print(f"\n📊 Actual Performance Results:")
+    print(f"\nActual Performance Results:")
     print(f"  Average time: {avg_time:.3f}s")
     print(f"  Min time: {min(times):.3f}s")
     print(f"  Max time: {max(times):.3f}s")
@@ -137,7 +137,7 @@ def test_actual_parallel_performance():
 
 def demonstrate_scaling_benefits():
     """Demonstrate how benefits scale with workload."""
-    print(f"\n📈 Scaling Benefits Analysis")
+    print(f"\nScaling Benefits Analysis")
     print("=" * 50)
     
     # Different workload sizes
@@ -156,14 +156,14 @@ def demonstrate_scaling_benefits():
         
         print(f"{workload:12d} | {seq_total:8.1f}s | {par_total:6.1f}s | {time_saved:8.1f}s | {speedup:6.1f}x")
     
-    print(f"\n🎯 Scaling Insights:")
+    print(f"\nScaling Insights:")
     print(f"  • Benefits increase linearly with workload size")
     print(f"  • Time savings compound for large batches")
     print(f"  • Parallel processing becomes essential for production")
 
 def show_latency_breakdown(results):
     """Show detailed latency breakdown."""
-    print(f"\n📋 Detailed Latency Breakdown:")
+    print(f"\nDetailed Latency Breakdown:")
     print("=" * 50)
     
     latency_fields = {k: v for k, v in results.items() if 'latency' in k}
@@ -173,7 +173,7 @@ def show_latency_breakdown(results):
 
 def main():
     """Run comprehensive performance analysis."""
-    print("🚀 Comprehensive Parallel Metric Computation Test")
+    print("Comprehensive Parallel Metric Computation Test")
     print("=" * 70)
     print()
     
@@ -190,26 +190,26 @@ def main():
     demonstrate_scaling_benefits()
     
     # Summary
-    print(f"\n📋 Summary:")
+    print(f"\nSummary:")
     print("=" * 50)
     
     if latency_success:
-        print(f"✅ net_score_latency fix is working correctly")
+        print(f"SUCCESS: net_score_latency fix is working correctly")
     else:
-        print(f"❌ net_score_latency still needs fixing")
+        print(f"FAILURE: net_score_latency still needs fixing")
     
-    print(f"✅ Theoretical speedup: {speedup:.1f}x")
-    print(f"✅ Theoretical improvement: {improvement:.1f}%")
-    print(f"✅ Actual execution time: {actual_time:.3f}s")
+    print(f"SUCCESS: Theoretical speedup: {speedup:.1f}x")
+    print(f"SUCCESS: Theoretical improvement: {improvement:.1f}%")
+    print(f"SUCCESS: Actual execution time: {actual_time:.3f}s")
     
-    print(f"\n🎯 Key Benefits:")
+    print(f"\nKey Benefits:")
     print(f"  • All 8 metrics computed simultaneously")
     print(f"  • ThreadPoolExecutor optimized for I/O-bound tasks")
     print(f"  • Dynamic worker count based on CPU cores")
     print(f"  • Accurate latency reporting")
     print(f"  • Graceful error handling")
     
-    print(f"\n🌍 Best Use Cases:")
+    print(f"\nBest Use Cases:")
     print(f"  • Multiple model analysis")
     print(f"  • Complex I/O operations")
     print(f"  • Network-bound tasks")
