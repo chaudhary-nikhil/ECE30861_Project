@@ -336,8 +336,19 @@ def estimate_model_size(model_name: str, model_type: str = "model") -> float:
     return analysis['size_mb']
 
 _data_fetcher = IntegratedDataFetcher()
-def calculate_model_bus_factor(contributor_count: int) -> float:
+MAJOR_ORGS = ['google', 'openai', 'microsoft', 'meta', 'facebook', 'anthropic', 'nvidia', 'tensorflow']
+def is_major_organization(name: str) -> bool:
+    """Check if a name contains a major organization"""
+    if not name:
+        return False
+    name_lower = name.lower()
+    return any(org in name_lower for org in MAJOR_ORGS)
+
+
+def calculate_model_bus_factor(contributor_count: int, model_name: str = "") -> float:
     """Calculate bus factor for models based only on contributor count"""
+    if is_major_organization(model_name):
+        return 0.95
     if contributor_count == 0:
         return 0.0
     elif contributor_count == 1:
@@ -347,8 +358,10 @@ def calculate_model_bus_factor(contributor_count: int) -> float:
     else:
         return 1.0
 
-def calculate_dataset_bus_factor(contributor_count: int) -> float:
+def calculate_dataset_bus_factor(contributor_count: int, dataset_name: str = "") -> float:
     """Calculate bus factor for datasets based only on contributor count"""
+    if is_major_organization(dataset_name):
+        return 0.95
     if contributor_count == 0:
         return 0.0
     elif contributor_count == 1:
@@ -358,8 +371,10 @@ def calculate_dataset_bus_factor(contributor_count: int) -> float:
     else:
         return 1.0
 
-def calculate_code_bus_factor(contributor_count: int) -> float:
+def calculate_code_bus_factor(contributor_count: int, repo_name: str = "") -> float:
     """Calculate bus factor for code repos based only on contributor count"""
+    if is_major_organization(repo_name):
+        return 0.95
     if contributor_count == 0:
         return 0.0
     elif contributor_count == 1:
@@ -376,25 +391,16 @@ def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict
     """Calculate bus factor with latency measurement"""
 
     start_time = time.time()
-
-    # Extract contributor count from IntegratedDataFetcher data
     contributors = data.get('contributors', [])
     contributor_count = len(contributors) if contributors else 0
-
-     # DEBUG: Print contributor information
-    # print(f"DEBUG - URL: {url}")
-    # print(f"DEBUG - Category: {category.name}")
-    # print(f"DEBUG - Contributors found: {contributor_count}")
-    # print(f"DEBUG - Contributor list: {contributors[:5]}")  # Show first 5
-    # print(f"DEBUG - Raw data keys: {list(data.keys())}")
-    # print("-" * 50)
+    name = data.get('name', '')
 
     if category == UrlCategory.MODEL:
-        score = calculate_model_bus_factor(contributor_count)
+        score = calculate_model_bus_factor(contributor_count, name)
     elif category == UrlCategory.DATASET:
-        score = calculate_dataset_bus_factor(contributor_count)
+        score = calculate_dataset_bus_factor(contributor_count, name)
     elif category == UrlCategory.CODE:
-        score = calculate_code_bus_factor(contributor_count)
+        score = calculate_code_bus_factor(contributor_count, name)
     else:
         score = 0.0
 
@@ -429,21 +435,6 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
     # Code quality (based on likes)
     code_qual = 0.93 if likes > 1000 else 0.10 if likes < 10 else 0.0
 
-    # Bus factor - check organization
-    contributors = data.get('contributors', [])
-    model_name = data.get('name', '')
-    # Major orgs: google, openai, microsoft, meta, etc.
-    major_orgs = ['google', 'openai', 'microsoft', 'meta', 'facebook']
-    is_major_org = any(org in model_name.lower() for org in major_orgs)
-
-    if is_major_org:
-        bus = 0.95
-    elif downloads > 100000:
-        bus = 0.90
-    elif len(contributors) == 1:
-        bus = 0.33
-    else:
-        bus = 0.3
 
     return {
         'ramp_up_time': ramp_up,
@@ -458,8 +449,6 @@ def calculate_metrics(data: Dict[str, Any], category: UrlCategory) -> dict[str, 
         'dataset_quality_latency': 20 if dataset_qual > 0 else 0,
         'code_quality': code_qual,
         'code_quality_latency': 22 if code_qual > 0.5 else 12 if code_qual > 0 else 0,
-        'bus_factor': bus,
-        'bus_factor_latency': 25 if bus > 0.9 else 30 if bus < 0.5 else 20
     }
 
 def score_dataset(url: str) -> ScoreResult:
@@ -520,6 +509,7 @@ def score_dataset(url: str) -> ScoreResult:
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.DATASET)
 
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.DATASET, data_merged) 
     return ScoreResult(
         url,
         UrlCategory.DATASET,
@@ -532,6 +522,8 @@ def score_dataset(url: str) -> ScoreResult:
             "has_description": has_description,
             "size_score": size_score,
             "size_score_latency": size_score_latency,
+            "bus_factor": bus_factor_score,
+            "bus_factor_latency": bus_factor_latency,
             **metrics
         },
     )
@@ -540,7 +532,7 @@ def score_dataset(url: str) -> ScoreResult:
 def score_model(url: str) -> ScoreResult:
     """Score a Hugging Face model."""
     # Extract model name
-    match = re.search(r"https://huggingface\.co/([\w-]+/[\w-]+)", url)
+    match = re.search(r"https://huggingface\.co/(?:models/)?([\w-]+(?:/[\w-]+)?)", url)
     if not match:
         estimated_size, size_score_latency = estimate_model_size_with_timing("unknown", "model")
         size_score = calculate_size_score(estimated_size)
@@ -602,6 +594,7 @@ def score_model(url: str) -> ScoreResult:
 
     # Calculate all metrics
     metrics = calculate_metrics(data_merged, UrlCategory.MODEL)
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.MODEL, data_merged) 
 
     return ScoreResult(
         url,
@@ -615,6 +608,8 @@ def score_model(url: str) -> ScoreResult:
             "has_model_card": has_card,
             "pipeline_tag": pipeline_tag,
             "size_score": size_score,
+            "bus_factor": bus_factor_score,
+            "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
             **metrics
         },
@@ -686,8 +681,9 @@ def score_code(url: str) -> ScoreResult:
     contributor_data = _data_fetcher.fetch_data(url)
     data_merged = {**data, **contributor_data} if data else contributor_data
     metrics = calculate_metrics(data_merged, UrlCategory.CODE)
-
-    return ScoreResult(
+    bus_factor_score, bus_factor_latency = calculate_bus_factor_with_timing(url, UrlCategory.CODE, data_merged) 
+    return ScoreResult(  # ← Add this line
+   
         url,
         UrlCategory.CODE,
         min(score, 10.0),
@@ -700,6 +696,8 @@ def score_code(url: str) -> ScoreResult:
             "has_license": has_license,
             "language": language,
             "size_score": size_score,
+            "bus_factor": bus_factor_score,
+            "bus_factor_latency": bus_factor_latency,
             "size_score_latency": size_score_latency,
             **metrics
         },
