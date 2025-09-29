@@ -24,13 +24,8 @@ import subprocess
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Try to import GitPython, fallback to subprocess if not available
-try:
-    import git
-    GIT_PYTHON_AVAILABLE = True
-except ImportError:
-    import subprocess
-    GIT_PYTHON_AVAILABLE = False
+# Import GitPython for Git operations
+import git
 
 
 @dataclass
@@ -184,13 +179,7 @@ def analyze_model_repository(model_name: str, model_url: str, model_type: str = 
                 print(f"Cloning repository: {model_url}")
 
                 # Clone repository
-                if GIT_PYTHON_AVAILABLE:
-                    repo = git.Repo.clone_from(model_url, temp_dir)
-                else:
-                    result = subprocess.run(['git', 'clone', '--depth', '1', model_url, temp_dir],
-                                         capture_output=True, text=True, timeout=120)
-                    if result.returncode != 0:
-                        raise Exception(f"Git clone failed: {result.stderr}")
+                repo = git.Repo.clone_from(model_url, temp_dir)
 
             # Analyze model files
             analysis = _analyze_model_files(temp_dir, model_name, model_type)
