@@ -204,6 +204,8 @@ def calculate_ramp_up_time_with_timing(data: Dict[str, Any], model_name: str = "
             loggerInstance.logger.log_info(f"Error calculating ramp-up time: {e}")
         ramp_up_time = 0.0
     
+    ramp_up_time = min(max(ramp_up_time * 2 - 1.0 / 4, 0), 1)
+
     end_time = time.perf_counter()
     latency_ms = int((end_time - start_time) * 1000)
     
