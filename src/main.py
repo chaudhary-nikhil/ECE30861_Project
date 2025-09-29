@@ -21,7 +21,7 @@ def format_floats_to_2dp(obj):
     elif isinstance(obj, list):
         return [format_floats_to_2dp(item) for item in obj]
     elif isinstance(obj, float):
-        return f"{obj:.2f}"
+        return round(obj, 2)
     else:
         return obj
 
@@ -364,7 +364,7 @@ def calculate_scores(urlsets: list[UrlSet]) -> None:
     #with open(output_filename, "w") as f:
     for ndjson_entry in ndjson_results:
         formatted_entry = format_floats_to_2dp(ndjson_entry)
-        sys.stdout.write(json.dumps(formatted_entry).replace(" ", "") + "\n")
+        sys.stdout.write(json.dumps(formatted_entry, separators=(',', ':')).replace(" ", "") + "\n")
 
     # loggerInstance.logger.log_info(f"\n Results written to: stdout")
 
