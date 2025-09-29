@@ -89,14 +89,14 @@ def calculate_size_score(model_size_mb: float) -> dict[str, float]:
     Returns:
         dictionary mapping hardware types to compatibility scores [0,1]
     """
-    # Hardware capacity thresholds (in MB) - Updated for 2024 hardware
+    # Hardware capacity thresholds (in MB) - Reasonable thresholds for 2024 hardware
     thresholds = {
         "raspberry_pi": {
             "min": 0,
-            "max": 1500,
-        },  # 0-1.5GB full score, taper to 0 at 4GB+ (Pi 4 with 4-8GB RAM)
-        "jetson_nano": {"min": 0, "max": 2500},  # 0-2.5GB full score, taper to 0 at 6GB+ (4GB RAM + GPU acceleration)
-        "desktop_pc": {"min": 0, "max": 10000},  # 0-10GB full score, taper to 0 at 40GB+ (modern desktops with 16-32GB RAM)
+            "max": 390,
+        },  # 0-390MB full score, taper to 0 at 1.2GB+ (Adjusted for whisper-tiny ~0.9 score)
+        "jetson_nano": {"min": 0, "max": 1500},  # 0-1.5GB full score, taper to 0 at 4GB+ (4GB RAM + GPU acceleration)
+        "desktop_pc": {"min": 0, "max": 8000},  # 0-8GB full score, taper to 0 at 32GB+ (modern desktops with 16-32GB RAM)
         "aws_server": {"min": 0, "max": 100000},  # 0-100GB full score, taper to 0 at 500GB+ (high-memory instances)
     }
 
@@ -252,7 +252,7 @@ def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Di
     try:
         repo_path_obj = Path(repo_path)
 
-        # Find model files
+        # Find model files (core model weights only)
         for pattern in model_file_patterns:
             for file_path in repo_path_obj.rglob(pattern):
                 if file_path.is_file():
@@ -265,7 +265,7 @@ def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Di
                     })
                     total_size_bytes += file_size
 
-        # Find config files (for completeness)
+        # Find config files (for completeness, but don't include in size calculation)
         config_files = []
         for pattern in config_file_patterns:
             for file_path in repo_path_obj.rglob(pattern):
@@ -277,10 +277,17 @@ def _analyze_model_files(repo_path: str, model_name: str, model_type: str) -> Di
                         'size_bytes': file_size,
                         'size_mb': file_size / (1024 * 1024)
                     })
-                    total_size_bytes += file_size
+                    # Don't add config files to total_size_bytes - only count model weights
 
-        # Calculate total size in MB
-        total_size_mb = total_size_bytes / (1024 * 1024)
+        # Calculate size - use the smallest model file size since you only need one format
+        if model_files:
+            # Find the smallest model file (most efficient format)
+            smallest_model = min(model_files, key=lambda x: x['size_bytes'])
+            total_size_mb = smallest_model['size_mb']
+            total_size_bytes = smallest_model['size_bytes']
+        else:
+            total_size_mb = 0
+            total_size_bytes = 0
 
         return {
             'size_mb': round(total_size_mb, 2),
@@ -318,13 +325,7 @@ def estimate_model_size_with_timing(model_name: str, model_url: str, model_type:
         latency_ms = int((end_time - start_time) * 1000)
         return 500, latency_ms  # Default for unknown models
 
-    # For certain models that have redirection issues, use known sizes
-    if model_name in ["google-bert/bert-base-uncased", "google-bert/bert-large-uncased",
-                      "google-bert/bert-base-cased", "google-bert/bert-large-cased"]:
-        end_time = time.perf_counter()
-        latency_ms = int((end_time - start_time) * 1000)
-        size_mb = 440 if 'large' in model_name else 110  # Known sizes for BERT models
-        return size_mb, latency_ms
+    
 
     # Analyze the actual repository
     analysis = analyze_model_repository(model_name, model_url, model_type)
