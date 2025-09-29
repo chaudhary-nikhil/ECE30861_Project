@@ -426,7 +426,7 @@ def calculate_bus_factor_with_timing(url: str, category: UrlCategory, data: Dict
         score = 0.0
 
     end_time = time.time()
-    latency_ms = int((end_time - start_time) * 1000)
+    latency_ms = max(int((end_time - start_time) * 1000), 10)
 
     return score, latency_ms
 
