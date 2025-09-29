@@ -11,6 +11,9 @@ from typing import Optional, Tuple, Dict, Any
 import requests
 from .log import loggerInstance
 
+# Import GitPython for Git operations
+import git
+
 
 def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
     """
@@ -36,12 +39,16 @@ def run_flake8_on_repo(repo_path: str) -> tuple[float, int]:
         if not python_files:
             quality_score = 0.0
         else:
-            # Run flake8 on the repository
+            # Run flake8 on the repository (only on the cloned repo, not the entire project)
+            # Use absolute path to ensure we only analyze the cloned repository
+            import os
+            abs_repo_path = os.path.abspath(repo_path)
             result = subprocess.run(
-                ['python3.9', '-m', 'flake8', repo_path, '--count', '--statistics'],
+                ['python3.9', '-m', 'flake8', abs_repo_path, '--count', '--statistics'],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                cwd=abs_repo_path  # Ensure we're in the repo directory
             )
             
             # Parse flake8 output to get error counts
@@ -199,12 +206,22 @@ def calculate_code_quality_with_timing(code_url: Optional[str], model_name: str)
             with tempfile.TemporaryDirectory() as temp_dir:
                 repo_path = os.path.join(temp_dir, "repo")
                 
-                # Clone the repository
-                subprocess.run(
-                    ['git', 'clone', '--depth', '1', code_url, repo_path],
-                    capture_output=True,
-                    timeout=60
-                )
+                # Clone the repository using GitPython
+                repo = git.Repo.clone_from(code_url, repo_path)
+                print(f"Repository cloned using GitPython: {repo_path}")
+                
+                # Analyze Git metadata programmatically
+                try:
+                    commits = list(repo.iter_commits(max_count=100))
+                    contributors = set(commit.author.name for commit in commits)
+                    print(f"Found {len(commits)} recent commits from {len(contributors)} contributors")
+                    
+                    # Analyze repository structure
+                    branches = [branch.name for branch in repo.branches]
+                    print(f"Repository has {len(branches)} branches")
+                    
+                except Exception as e:
+                    print(f"Git metadata analysis failed: {e}")
                 
                 # Run flake8 on the cloned repository
                 quality_score, _ = run_flake8_on_repo(repo_path)
@@ -221,11 +238,22 @@ def calculate_code_quality_with_timing(code_url: Optional[str], model_name: str)
                 with tempfile.TemporaryDirectory() as temp_dir:
                     repo_path = os.path.join(temp_dir, "repo")
                     
-                    subprocess.run(
-                        ['git', 'clone', '--depth', '1', code_repo_url, repo_path],
-                        capture_output=True,
-                        timeout=60
-                    )
+                    # Clone the repository using GitPython
+                    repo = git.Repo.clone_from(code_repo_url, repo_path)
+                    print(f"Repository cloned using GitPython: {repo_path}")
+                    
+                    # Analyze Git metadata programmatically
+                    try:
+                        commits = list(repo.iter_commits(max_count=100))
+                        contributors = set(commit.author.name for commit in commits)
+                        print(f"Found {len(commits)} recent commits from {len(contributors)} contributors")
+                        
+                        # Analyze repository structure
+                        branches = [branch.name for branch in repo.branches]
+                        print(f"Repository has {len(branches)} branches")
+                        
+                    except Exception as e:
+                        print(f"Git metadata analysis failed: {e}")
                     
                     quality_score, _ = run_flake8_on_repo(repo_path)
                     
@@ -281,11 +309,22 @@ def calculate_code_quality(code_url: Optional[str], model_name: str) -> float:
                 with tempfile.TemporaryDirectory() as temp_dir:
                     repo_path = os.path.join(temp_dir, "repo")
                     
-                    subprocess.run(
-                        ['git', 'clone', '--depth', '1', code_repo_url, repo_path],
-                        capture_output=True,
-                        timeout=60
-                    )
+                    # Clone the repository using GitPython
+                    repo = git.Repo.clone_from(code_repo_url, repo_path)
+                    print(f"Repository cloned using GitPython: {repo_path}")
+                    
+                    # Analyze Git metadata programmatically
+                    try:
+                        commits = list(repo.iter_commits(max_count=100))
+                        contributors = set(commit.author.name for commit in commits)
+                        print(f"Found {len(commits)} recent commits from {len(contributors)} contributors")
+                        
+                        # Analyze repository structure
+                        branches = [branch.name for branch in repo.branches]
+                        print(f"Repository has {len(branches)} branches")
+                        
+                    except Exception as e:
+                        print(f"Git metadata analysis failed: {e}")
                     
                     quality_score, _ = run_flake8_on_repo(repo_path)
                     
