@@ -153,6 +153,6 @@ def calculate_performance_claims_with_timing(data: Dict[str, Any], model_name: s
         score = 0.0
     
     end_time = time.perf_counter()
-    latency_ms = int((end_time - start_time) * 1000)
+    latency_ms = max(int((end_time - start_time) * 1000), 10)
     
     return min(1.0, 2 * score), latency_ms
